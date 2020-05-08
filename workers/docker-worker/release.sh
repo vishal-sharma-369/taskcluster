@@ -1,8 +1,8 @@
 #! /bin/bash
 
-set -e
+set -ex
 
-OUTPUT=docker-worker.tgz
+OUTPUT=docker-worker-x64.tgz
 while getopts "o:" opt; do
     case "${opt}" in
         o)  OUTPUT=$OPTARG
@@ -31,16 +31,24 @@ done
 # Install Node
 NODE_VERSION=12.11.0
 mkdir $DW_ROOT/node
-curl https://nodejs.org/dist/v13.14.0/node-v13.14.0-linux-x64.tar.xz | tar -C $DW_ROOT/node --strip-components=1 -xJf -
+curl https://nodejs.org/dist/v${NODE_VERSION}/node-v${NODE_VERSION}-linux-x64.tar.xz | tar -C $DW_ROOT/node --strip-components=1 -xJf -
+
+# Install Yarn (later to be removed)
+curl -L https://yarnpkg.com/latest.tar.gz | tar --transform 's|yarn-[^/]*/|yarn/|' -C $DW_ROOT -zvxf -
 
 # Install dependencies
 PATH=$DW_ROOT/node/bin:$DW_ROOT/node_modules/.bin:$PATH
 (
     cd $DW_ROOT
-    npm install yarn
-    yarn install --dev
-    npm uninstall yarn
+    ./yarn/bin/yarn install --dev
 )
 
+# Clean up some stuff
+rm -rf "$DW_ROOT/yarn"
+rm -rf "$DW_ROOT/node/include"
+rm -rf "$DW_ROOT/node/lib/node_modules/npm"
+rm -rf "$DW_ROOT/node/bin/npm"
+rm -rf "$DW_ROOT/node/bin/npx"
+
 # tar up the result..
-tar -C $DW_ROOT --dereference --transform 's|^\./|docker-worker/|' -czf $OUTPUT .
+tar -C $DW_ROOT --transform 's|^\./|docker-worker/|' -czf $OUTPUT .
