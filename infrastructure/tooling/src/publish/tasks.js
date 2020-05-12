@@ -267,7 +267,6 @@ module.exports = ({tasks, cmdOptions, credentials, baseDir, logsDir}) => {
       fs.writeFileSync(dockerfile, [
         'FROM scratch',
         'COPY websocktunnel /websocktunnel',
-        'RUN mkdir /app',
         'COPY version.json /app/version.json',
         'ENTRYPOINT ["/websocktunnel"]',
       ].join('\n'));
@@ -355,7 +354,6 @@ module.exports = ({tasks, cmdOptions, credentials, baseDir, logsDir}) => {
         'FROM progrium/busybox',
         'EXPOSE 60023',
         'EXPOSE 60022',
-        'RUN mkdir /app',
         'COPY version.json /app/version.json',
         'COPY livelog /livelog',
         'ENTRYPOINT ["/livelog"]',
@@ -441,7 +439,6 @@ module.exports = ({tasks, cmdOptions, credentials, baseDir, logsDir}) => {
         // start over in an empty image and just copy the certs in
         'FROM scratch',
         'EXPOSE 80',
-        'RUN mkdir /app',
         'COPY version.json /app/version.json',
         'COPY taskcluster-proxy /taskcluster-proxy',
         'COPY --from=ubuntu /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt',
