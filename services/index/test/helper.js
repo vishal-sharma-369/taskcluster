@@ -162,7 +162,7 @@ exports.resetTables = (mock, skipping) => {
       const sec = exports.secrets.get('db');
       await resetTables({ testDbUrl: sec.testDbUrl, tableNames: [
         'indexed_tasks',
-        'namespaces',
+        'index_namespaces',
       ]});
     }
   });
