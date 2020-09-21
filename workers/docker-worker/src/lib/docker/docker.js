@@ -1,4 +1,4 @@
-const DockerAPI = require('dockerode');
+const DockerAPI = require('dockerode-promise');
 const dockerOpts = require('dockerode-options');
 
 class Docker extends DockerAPI {

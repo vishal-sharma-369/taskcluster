@@ -1,4 +1,4 @@
-let Docker = require('dockerode');
+let Docker = require('dockerode-promise');
 let dockerOpts = require('dockerode-options');
 
 /**
