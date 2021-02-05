@@ -137,6 +137,7 @@ func testTask(t *testing.T) *tcqueue.TaskDefinitionRequest {
 		Priority:      "lowest",
 		TaskGroupID:   taskGroupID,
 		WorkerType:    config.WorkerType,
+		TaskQueueID:   config.ProvisionerID + "/" + config.WorkerType,
 	}
 }
 
