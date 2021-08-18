@@ -127,7 +127,7 @@
     "node-fetch": "^2.2.0",
     "webpack": "^4.42.1",
     "webpack-cli": "^3.2.3",
-    "webpack-dev-server": "^3.10.3"
+    "webpack-dev-server": "^4.0.0"
   },
   "optionalDependencies": {
     "bufferutil": "^4.0.0",
