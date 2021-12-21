@@ -96,7 +96,7 @@
     "sentry-api": "^0.2.0",
     "sift": "^13.5.0",
     "slugid": "^2.0.0",
-    "subscriptions-transport-ws": "^0.9.7",
+    "subscriptions-transport-ws": "^0.11.0",
     "superagent": "^6.0.0",
     "taskcluster-client": "link:clients/client",
     "taskcluster-db": "link:db",
