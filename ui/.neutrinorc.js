@@ -94,6 +94,7 @@ module.exports = {
                   [require.resolve('@babel/plugin-proposal-class-properties'), { loose: false }],
                   [require.resolve('@babel/plugin-proposal-optional-chaining'), { loose: true }],
                   [require.resolve('@babel/plugin-proposal-nullish-coalescing-operator'), { loose: true }],
+                  [require.resolve('@babel/plugin-transform-modules-commonjs'), { loose: true }],
                 ]).filter(Boolean)
             }));
 
@@ -167,8 +168,16 @@ module.exports = {
         '<rootDir>/src/**/*.test.(js|jsx)',
         '<rootDir>/tests/unit/**/*.test.(ts)'
       ],
-      setupFiles: [
+      setupFilesAfterEnv: [
         './jest.setup.js',
+      ],
+      moduleFileExtensions: ['js', 'jsx'],
+      transform: {
+        '^.+\\.(js|jsx)$': 'babel-jest',
+        '\\.graphql$': 'jest-transform-graphql',
+      },
+      transformIgnorePatterns: [
+        "node_modules/(?!is-absolute-url|taskcluster-client-web)"
       ],
     }),
   ],
