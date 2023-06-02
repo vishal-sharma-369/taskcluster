@@ -1030,7 +1030,7 @@ func TestIndexedArtifact(t *testing.T) {
 		}
 	}
 
-	namespace := fmt.Sprintf("garbage.generic-worker.TestIndexedArtifact.%v", time.Now().UnixMilli())
+	namespace := fmt.Sprintf("garbage.generic-worker-tests.TestIndexedArtifact.%v", time.Now().UnixMilli())
 	testIndexedArtifact("unknown_issuer_app_1.zip", namespace, 119)
 	testIndexedArtifact("mozharness.zip", namespace, 239)
 }
