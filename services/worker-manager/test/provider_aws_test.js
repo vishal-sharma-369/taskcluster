@@ -74,7 +74,6 @@ helper.secrets.mockSuite(testing.suiteName(), [], function(mock, skipping) {
           secretAccessKey: 'topsecret',
         },
       },
-      queue: helper.queue,
     });
 
     await helper.db.fns.delete_worker_pool(workerPoolId);
@@ -442,7 +441,7 @@ helper.secrets.mockSuite(testing.suiteName(), [], function(mock, skipping) {
       await worker.create(helper.db);
 
       provider.seen = {};
-      await provider.checkWorker({ worker });
+      await provider.checkWorker({ worker: worker });
 
       const workers = await helper.getWorkers();
       assert.notStrictEqual(workers.length, 0);
@@ -461,7 +460,7 @@ helper.secrets.mockSuite(testing.suiteName(), [], function(mock, skipping) {
       await worker.create(helper.db);
 
       provider.seen = {};
-      await provider.checkWorker({ worker });
+      await provider.checkWorker({ worker: worker });
 
       const workers = await helper.getWorkers();
       assert.notStrictEqual(workers.length, 0);
@@ -480,7 +479,7 @@ helper.secrets.mockSuite(testing.suiteName(), [], function(mock, skipping) {
       await worker.create(helper.db);
 
       provider.seen = {};
-      await assert.rejects(provider.checkWorker({ worker }));
+      await assert.rejects(provider.checkWorker({ worker: worker }));
       assert.strictEqual(provider.seen[worker.workerPoolId], 0);
     });
 
@@ -494,7 +493,7 @@ helper.secrets.mockSuite(testing.suiteName(), [], function(mock, skipping) {
       await worker.create(helper.db);
 
       provider.seen = {};
-      await provider.checkWorker({ worker });
+      await provider.checkWorker({ worker: worker });
 
       const workers = await helper.getWorkers();
       assert.notStrictEqual(workers.length, 0);
@@ -516,7 +515,7 @@ helper.secrets.mockSuite(testing.suiteName(), [], function(mock, skipping) {
       });
       await worker.create(helper.db);
       provider.seen = {};
-      await provider.checkWorker({ worker });
+      await provider.checkWorker({ worker: worker });
       assert.deepEqual(fake.rgn('us-west-2').terminatedInstances, ['i-123']);
     });
 
@@ -533,7 +532,7 @@ helper.secrets.mockSuite(testing.suiteName(), [], function(mock, skipping) {
       });
       await worker.create(helper.db);
       provider.seen = {};
-      await provider.checkWorker({ worker });
+      await provider.checkWorker({ worker: worker });
       assert.deepEqual(fake.rgn('us-west-2').terminatedInstances, []);
     });
 
@@ -554,7 +553,7 @@ helper.secrets.mockSuite(testing.suiteName(), [], function(mock, skipping) {
         this.providerData.terminateAfter = Date.now() + 1000;
       };
 
-      await provider.checkWorker({ worker });
+      await provider.checkWorker({ worker: worker });
       assert.deepEqual(fake.rgn('us-west-2').terminatedInstances, []);
     });
 
@@ -571,7 +570,7 @@ helper.secrets.mockSuite(testing.suiteName(), [], function(mock, skipping) {
       });
       await worker.create(helper.db);
       provider.seen = {};
-      await provider.checkWorker({ worker });
+      await provider.checkWorker({ worker: worker });
       assert.deepEqual(fake.rgn('us-west-2').terminatedInstances, ['i-123']);
     });
 
@@ -588,6 +587,74 @@ helper.secrets.mockSuite(testing.suiteName(), [], function(mock, skipping) {
       });
       await worker.create(helper.db);
       provider.seen = {};
+      await provider.checkWorker({ worker: worker });
+      assert.deepEqual(fake.rgn('us-west-2').terminatedInstances, []);
+    });
+
+    test('remove zombie workers with no queue activity', async function () {
+      fake.rgn('us-west-2').instanceStatuses['i-123'] = 'running';
+      const worker = Worker.fromApi({
+        ...workerInDB,
+        workerId: 'i-123',
+        state: Worker.states.REQUESTED,
+        providerData: {
+          ...workerInDB.providerData,
+          terminateAfter: Date.now() + 100000,
+          queueInactivityTimeout: 1,
+        },
+      });
+      await worker.create(helper.db);
+      provider.seen = {};
+
+      worker.firstClaim = null;
+      worker.lastDateActive = null;
+      worker.created = taskcluster.fromNow('-1 hour');
+      await provider.checkWorker({ worker });
+      assert.deepEqual(fake.rgn('us-west-2').terminatedInstances, ['i-123']);
+    });
+    test('remove zombie workers that were not active recently', async function () {
+      fake.rgn('us-west-2').instanceStatuses['i-123'] = 'running';
+      const worker = Worker.fromApi({
+        ...workerInDB,
+        workerId: 'i-123',
+        state: Worker.states.REQUESTED,
+        providerData: {
+          ...workerInDB.providerData,
+          terminateAfter: Date.now() + 100000,
+          queueInactivityTimeout: 12000,
+        },
+      });
+      await worker.create(helper.db);
+      provider.seen = {};
+
+      worker.firstClaim = null;
+      worker.lastDateActive = null;
+      worker.created = taskcluster.fromNow('-120 minutes');
+      worker.firstClaim = taskcluster.fromNow('-110 minutes');
+      worker.lastDate = taskcluster.fromNow('-100 minutes');
+      await provider.checkWorker({ worker });
+      assert.deepEqual(fake.rgn('us-west-2').terminatedInstances, ['i-123']);
+    });
+    test('don\'t remove zombie workers that were active recently', async function () {
+      fake.rgn('us-west-2').instanceStatuses['i-123'] = 'running';
+      const worker = Worker.fromApi({
+        ...workerInDB,
+        workerId: 'i-123',
+        state: Worker.states.REQUESTED,
+        providerData: {
+          ...workerInDB.providerData,
+          terminateAfter: Date.now() + 100000,
+          queueInactivityTimeout: 60 * 60 * 4 * 1000,
+        },
+      });
+      await worker.create(helper.db);
+      provider.seen = {};
+
+      worker.firstClaim = null;
+      worker.lastDateActive = null;
+      worker.created = taskcluster.fromNow('-120 minutes');
+      worker.firstClaim = taskcluster.fromNow('-110 minutes');
+      worker.lastDate = taskcluster.fromNow('-100 minutes');
       await provider.checkWorker({ worker });
       assert.deepEqual(fake.rgn('us-west-2').terminatedInstances, []);
     });
@@ -602,25 +669,8 @@ helper.secrets.mockSuite(testing.suiteName(), [], function(mock, skipping) {
           ...defaultWorker.providerData,
           region: 'us-west-2',
         },
-        workerId: 'i-123',
       };
-      await assert.doesNotReject(provider.removeWorker({ worker, reason: 'removed' }));
-    });
-
-    test('calls quarantineWorker', async function() {
-      const worker = {
-        ...defaultWorker,
-        providerData: {
-          ...defaultWorker.providerData,
-          region: 'us-west-2',
-        },
-        workerId: 'i-123',
-      };
-      await provider.removeWorker({ worker, reason: 'removed' });
-
-      const lastQuarantine = helper.queue.quarantines[helper.queue.quarantines.length - 1];
-      assert.equal(lastQuarantine.workerId, 'i-123');
-      assert.equal(lastQuarantine.payload.quarantineInfo, 'removed');
+      await assert.doesNotReject(provider.removeWorker({ worker }));
     });
 
   });

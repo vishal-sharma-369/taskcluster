@@ -3,7 +3,7 @@
 package tcqueueevents
 
 import (
-	tcclient "github.com/taskcluster/taskcluster/v52/clients/client-go"
+	tcclient "github.com/taskcluster/taskcluster/v54/clients/client-go"
 )
 
 type (
@@ -169,6 +169,22 @@ type (
 		// Max length: 38
 		WorkerID string `json:"workerId,omitempty"`
 	}
+
+	// Link to source of this task, should specify a file, revision and
+	// repository. This should be place someone can go an do a git/hg blame
+	// to who came up with recipe for this task.
+	//
+	// Syntax:     ^(https?://|ssh://|git@)
+	// Max length: 4096
+	Source string
+
+	// Link to source of this task, should specify a file, revision and
+	// repository. This should be place someone can go an do a git/hg blame
+	// to who came up with recipe for this task.
+	//
+	// Syntax:     ^(https?://|ssh://|git@)
+	// Max length: 4096
+	Source1 string
 
 	// Subset of a task definition
 	Task struct {
@@ -391,8 +407,11 @@ type (
 		// repository. This should be place someone can go an do a git/hg blame
 		// to who came up with recipe for this task.
 		//
-		// Syntax:     ^(https?|ssh)://
+		// Syntax:     ^(https?://|ssh://|git@)
 		// Max length: 4096
+		// Any of:
+		//   * Source
+		//   * Source1
 		Source string `json:"source"`
 	}
 

@@ -37,9 +37,16 @@ const artifactUtils = {
    * This method will remove both the artifact in the db and underlying artifact.
    * But the artifact in the db will not be deleted if there is an error
    * deleting the underlying artifact.
+   *
+   * Not all S3-compatible storage providers support bulk delete, so we
+   * need to handle that case.
    */
-  async expire({ db, publicBucket, privateBucket, ignoreError, monitor, expires }) {
+  async expire({ db, publicBucket, privateBucket, ignoreError, monitor,
+    expires, useBulkDelete, expireArtifactsBatchSize }) {
     let count = 0;
+    let errorsCount = 0;
+
+    assert(!useBulkDelete || expireArtifactsBatchSize <= 1000, 'expireArtifactsBatchSize must be <= 1000 when useBulkDelete is true');
 
     // Fetch all expired artifacts and batch delete the S3 ones
     // then remove the entity from the database
@@ -47,7 +54,7 @@ const artifactUtils = {
     while (true) {
       const rows = await db.fns.get_expired_artifacts_for_deletion({
         expires_in: expires,
-        page_size_in: 1000,
+        page_size_in: expireArtifactsBatchSize,
       });
       if (!rows.length) {
         break;
@@ -87,6 +94,7 @@ const artifactUtils = {
                 message: obj.Message,
                 prefix: obj.Key,
               })));
+              errorsCount += response.Errors.length;
 
               // this will likely be a soft error, so we'll just log it
               const err = new Error('Failed to delete s3 objects');
@@ -107,6 +115,25 @@ const artifactUtils = {
           }
         }
       };
+      const deleteSingleObject = async (bucket, entry) => {
+        try {
+          return await bucket.deleteObject(entry.details.prefix);
+        } catch (err) {
+          errorsCount++;
+          // Some S3-compatible storage providers might throw an error when file is missing
+          // where AWS S3 would return 204 response without body
+          // GCS: https://cloud.google.com/storage/docs/xml-api/delete-object
+          // S3: https://docs.aws.amazon.com/AmazonS3/latest/API/API_DeleteObject.html
+          if (`${err.code} ${err.name} ${err.message}`.includes('NoSuchKey')) {
+            monitor.debug(
+              'WARNING: Failed to delete missing S3 object: %s:%s %j',
+              bucket.bucket, entry.details.prefix, err,
+            );
+          } else {
+            throw err;
+          }
+        }
+      };
 
       monitor.debug({
         message: 'Removing artifacts from buckets',
@@ -117,10 +144,15 @@ const artifactUtils = {
       // only s3 artifacts need to be deleted
       // 'object' artifacts are deleted at expiration by the object service
       // if this fails, we stop and don't delete the db entry
-      await Promise.all([
-        deleteObjects(publicBucket, s3public),
-        deleteObjects(privateBucket, s3private),
-      ]);
+      if (useBulkDelete) {
+        await Promise.all([
+          deleteObjects(publicBucket, s3public),
+          deleteObjects(privateBucket, s3private),
+        ]);
+      } else {
+        await Promise.allSettled(s3public.map(entry => deleteSingleObject(publicBucket, entry)));
+        await Promise.allSettled(s3private.map(entry => deleteSingleObject(privateBucket, entry)));
+      }
 
       monitor.debug({
         message: 'Removed artifacts from buckets',
@@ -149,7 +181,7 @@ const artifactUtils = {
       }
     }
 
-    return count;
+    return { count, errorsCount };
   },
 };
 

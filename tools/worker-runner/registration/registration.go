@@ -9,13 +9,13 @@ import (
 	"sync"
 	"time"
 
-	taskcluster "github.com/taskcluster/taskcluster/v52/clients/client-go"
-	"github.com/taskcluster/taskcluster/v52/clients/client-go/tcworkermanager"
-	"github.com/taskcluster/taskcluster/v52/tools/worker-runner/cfg"
-	"github.com/taskcluster/taskcluster/v52/tools/worker-runner/run"
-	"github.com/taskcluster/taskcluster/v52/tools/worker-runner/tc"
-	"github.com/taskcluster/taskcluster/v52/tools/worker-runner/util"
-	"github.com/taskcluster/taskcluster/v52/tools/workerproto"
+	taskcluster "github.com/taskcluster/taskcluster/v54/clients/client-go"
+	"github.com/taskcluster/taskcluster/v54/clients/client-go/tcworkermanager"
+	"github.com/taskcluster/taskcluster/v54/tools/worker-runner/cfg"
+	"github.com/taskcluster/taskcluster/v54/tools/worker-runner/run"
+	"github.com/taskcluster/taskcluster/v54/tools/worker-runner/tc"
+	"github.com/taskcluster/taskcluster/v54/tools/worker-runner/util"
+	"github.com/taskcluster/taskcluster/v54/tools/workerproto"
 )
 
 type RegistrationManager struct {
@@ -62,7 +62,7 @@ func (reg *RegistrationManager) RegisterWorker(workerIdentityProofMap map[string
 		WorkerIdentityProof: json.RawMessage(workerIdentityProof),
 	})
 	if err != nil {
-		return fmt.Errorf("Could not register worker: %w", err)
+		return fmt.Errorf("could not register worker: %w", err)
 	}
 
 	reg.state.Credentials.ClientID = res.Credentials.ClientID
@@ -91,7 +91,7 @@ func (reg *RegistrationManager) UseCachedRun() error {
 		return nil
 	}
 	if expire.Before(time.Now()) {
-		return errors.New("Cached worker credentials have expired; cannot re-register")
+		return errors.New("cached worker credentials have expired; cannot re-register")
 	}
 
 	return nil

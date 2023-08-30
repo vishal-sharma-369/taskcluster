@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	tcclient "github.com/taskcluster/taskcluster/v52/clients/client-go"
+	tcclient "github.com/taskcluster/taskcluster/v54/clients/client-go"
 )
 
 type (
@@ -295,37 +295,50 @@ type (
 		//
 		// Syntax:     ^[A-Za-z0-9_-]{8}[Q-T][A-Za-z0-9_-][CGKOSWaeimquy26-][A-Za-z0-9_-]{10}[AQgw]$
 		TaskID string `json:"taskId"`
+
+		// Task state derived from tasks last run status.
+		// This value can change through time as tasks are being scheduled, run and re-run.
+		// If task doesn't exist or was just created, this value will default to `unscheduled`.
+		//
+		// Possible values:
+		//   * "unscheduled"
+		//   * "pending"
+		//   * "running"
+		//   * "completed"
+		//   * "failed"
+		//   * "exception"
+		TaskState string `json:"taskState"`
 	}
 )
 
 // MarshalJSON calls json.RawMessage method of the same name. Required since
 // TriggerHookRequest is of type json.RawMessage...
-func (this *TriggerHookRequest) MarshalJSON() ([]byte, error) {
-	x := json.RawMessage(*this)
+func (m *TriggerHookRequest) MarshalJSON() ([]byte, error) {
+	x := json.RawMessage(*m)
 	return (&x).MarshalJSON()
 }
 
 // UnmarshalJSON is a copy of the json.RawMessage implementation.
-func (this *TriggerHookRequest) UnmarshalJSON(data []byte) error {
-	if this == nil {
+func (m *TriggerHookRequest) UnmarshalJSON(data []byte) error {
+	if m == nil {
 		return errors.New("TriggerHookRequest: UnmarshalJSON on nil pointer")
 	}
-	*this = append((*this)[0:0], data...)
+	*m = append((*m)[0:0], data...)
 	return nil
 }
 
 // MarshalJSON calls json.RawMessage method of the same name. Required since
 // TriggerHookResponse is of type json.RawMessage...
-func (this *TriggerHookResponse) MarshalJSON() ([]byte, error) {
-	x := json.RawMessage(*this)
+func (m *TriggerHookResponse) MarshalJSON() ([]byte, error) {
+	x := json.RawMessage(*m)
 	return (&x).MarshalJSON()
 }
 
 // UnmarshalJSON is a copy of the json.RawMessage implementation.
-func (this *TriggerHookResponse) UnmarshalJSON(data []byte) error {
-	if this == nil {
+func (m *TriggerHookResponse) UnmarshalJSON(data []byte) error {
+	if m == nil {
 		return errors.New("TriggerHookResponse: UnmarshalJSON on nil pointer")
 	}
-	*this = append((*this)[0:0], data...)
+	*m = append((*m)[0:0], data...)
 	return nil
 }

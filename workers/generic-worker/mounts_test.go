@@ -14,8 +14,8 @@ import (
 	"github.com/mcuadros/go-defaults"
 	"github.com/taskcluster/slugid-go/slugid"
 
-	"github.com/taskcluster/taskcluster/v52/clients/client-go/tcindex"
-	"github.com/taskcluster/taskcluster/v52/workers/generic-worker/gwconfig"
+	"github.com/taskcluster/taskcluster/v54/clients/client-go/tcindex"
+	"github.com/taskcluster/taskcluster/v54/workers/generic-worker/gwconfig"
 )
 
 func TestMissingScopes(t *testing.T) {

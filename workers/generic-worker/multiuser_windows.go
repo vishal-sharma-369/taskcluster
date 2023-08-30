@@ -13,11 +13,11 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/taskcluster/taskcluster/v52/workers/generic-worker/host"
-	"github.com/taskcluster/taskcluster/v52/workers/generic-worker/process"
-	"github.com/taskcluster/taskcluster/v52/workers/generic-worker/runtime"
-	gwruntime "github.com/taskcluster/taskcluster/v52/workers/generic-worker/runtime"
-	"github.com/taskcluster/taskcluster/v52/workers/generic-worker/win32"
+	"github.com/taskcluster/taskcluster/v54/workers/generic-worker/host"
+	"github.com/taskcluster/taskcluster/v54/workers/generic-worker/process"
+	"github.com/taskcluster/taskcluster/v54/workers/generic-worker/runtime"
+	gwruntime "github.com/taskcluster/taskcluster/v54/workers/generic-worker/runtime"
+	"github.com/taskcluster/taskcluster/v54/workers/generic-worker/win32"
 	"golang.org/x/sys/windows"
 	"golang.org/x/sys/windows/registry"
 )
@@ -317,36 +317,6 @@ func RenameFolderCrossDevice(oldpath, newpath string) (err error) {
 		return
 	}
 	err = os.RemoveAll(oldpath)
-	return
-}
-
-func (task *TaskRun) addUserToGroups(groups []string) (updatedGroups []string, notUpdatedGroups []string) {
-	if len(groups) == 0 {
-		return []string{}, []string{}
-	}
-	for _, group := range groups {
-		err := host.Run("net", "localgroup", group, "/add", taskContext.User.Name)
-		if err == nil {
-			updatedGroups = append(updatedGroups, group)
-		} else {
-			notUpdatedGroups = append(notUpdatedGroups, group)
-		}
-	}
-	return
-}
-
-func (task *TaskRun) removeUserFromGroups(groups []string) (updatedGroups []string, notUpdatedGroups []string) {
-	if len(groups) == 0 {
-		return []string{}, []string{}
-	}
-	for _, group := range groups {
-		err := host.Run("net", "localgroup", group, "/delete", taskContext.User.Name)
-		if err == nil {
-			updatedGroups = append(updatedGroups, group)
-		} else {
-			notUpdatedGroups = append(notUpdatedGroups, group)
-		}
-	}
 	return
 }
 

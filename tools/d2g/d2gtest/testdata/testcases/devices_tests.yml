@@ -1,0 +1,120 @@
+---
+testSuite:
+  name: Devices tests
+  description: Test that devices should be mounted as volumes in the resulting generic worker task payload.
+  tests:
+    - name: Host Shared Memory
+      description: >-
+        Tests that host shared memory device is mounted as a volume in the resulting generic worker task payload.
+      dockerWorkerTaskPayload:
+        command:
+          - echo "Hello world"
+        capabilities:
+          devices:
+            hostSharedMemory: true
+        image: ubuntu
+        maxRunTime: 3600
+      genericWorkerTaskPayload:
+        command:
+          - - bash
+            - '-cx'
+            - >-
+              podman run -t --rm
+              --device=/dev/shm
+              -e "RUN_ID=${RUN_ID}" -e
+              "TASKCLUSTER_ROOT_URL=${TASKCLUSTER_ROOT_URL}" -e
+              "TASKCLUSTER_WORKER_LOCATION=${TASKCLUSTER_WORKER_LOCATION}" -e
+              "TASK_ID=${TASK_ID}"
+              ubuntu 'echo "Hello world"'
+        maxRunTime: 3600
+        onExitStatus:
+          retry:
+            - 125
+
+    - name: KVM
+      description: >-
+        Tests that KVM device is mounted as a volume in the resulting generic worker task payload.
+      dockerWorkerTaskPayload:
+        command:
+          - echo "Hello world"
+        capabilities:
+          devices:
+            kvm: true
+        image: ubuntu
+        maxRunTime: 3600
+      genericWorkerTaskPayload:
+        command:
+          - - bash
+            - '-cx'
+            - >-
+              podman run -t --rm
+              --device=/dev/kvm
+              -e "RUN_ID=${RUN_ID}" -e
+              "TASKCLUSTER_ROOT_URL=${TASKCLUSTER_ROOT_URL}" -e
+              "TASKCLUSTER_WORKER_LOCATION=${TASKCLUSTER_WORKER_LOCATION}" -e
+              "TASK_ID=${TASK_ID}"
+              ubuntu 'echo "Hello world"'
+        maxRunTime: 3600
+        onExitStatus:
+          retry:
+            - 125
+
+    - name: Video Loopback
+      description: >-
+        Tests that loopbackVideo _capability_ in Docker Worker maps to Generic Worker _feature_ of the same name.
+      dockerWorkerTaskPayload:
+        command:
+          - echo "Hello world"
+        capabilities:
+          devices:
+            loopbackVideo: true
+        image: ubuntu
+        maxRunTime: 3600
+      genericWorkerTaskPayload:
+        command:
+          - - bash
+            - '-cx'
+            - >-
+              podman run -t --rm
+              --device="${TASKCLUSTER_VIDEO_DEVICE}"
+              -e "RUN_ID=${RUN_ID}" -e
+              "TASKCLUSTER_ROOT_URL=${TASKCLUSTER_ROOT_URL}" -e
+              "TASKCLUSTER_WORKER_LOCATION=${TASKCLUSTER_WORKER_LOCATION}" -e
+              "TASK_ID=${TASK_ID}"
+              ubuntu 'echo "Hello world"'
+        features:
+          loopbackVideo: true
+        maxRunTime: 3600
+        onExitStatus:
+          retry:
+            - 125
+
+    - name: Audio Loopback
+      description: >-
+        Tests that loopbackAudio _capability_ in Docker Worker maps to Generic Worker _feature_ of the same name.
+      dockerWorkerTaskPayload:
+        command:
+          - echo "Hello world"
+        capabilities:
+          devices:
+            loopbackAudio: true
+        image: ubuntu
+        maxRunTime: 3600
+      genericWorkerTaskPayload:
+        command:
+          - - bash
+            - '-cx'
+            - >-
+              podman run -t --rm
+              --device=/dev/snd
+              -e "RUN_ID=${RUN_ID}" -e
+              "TASKCLUSTER_ROOT_URL=${TASKCLUSTER_ROOT_URL}" -e
+              "TASKCLUSTER_WORKER_LOCATION=${TASKCLUSTER_WORKER_LOCATION}" -e
+              "TASK_ID=${TASK_ID}"
+              ubuntu 'echo "Hello world"'
+        features:
+          loopbackAudio: true
+        maxRunTime: 3600
+        onExitStatus:
+          retry:
+            - 125

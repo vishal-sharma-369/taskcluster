@@ -3,7 +3,7 @@
 //go:generate go run ../codegen/cmd/gen-services
 package apis
 
-import "github.com/taskcluster/taskcluster/v52/clients/client-shell/apis/definitions"
+import "github.com/taskcluster/taskcluster/v54/clients/client-shell/apis/definitions"
 
 var services = map[string]definitions.Service{
 	"Auth": definitions.Service{
@@ -597,6 +597,17 @@ var services = map[string]definitions.Service{
 				},
 				Query: []string{},
 				Input: "v1/create-comment.json#",
+			},
+			definitions.Entry{
+				Name:        "renderTaskclusterYml",
+				Title:       "Render .taskcluster.yml file",
+				Description: "This endpoint allows to render the .taskcluster.yml file for a given event or payload.\nThis is useful to preview the result of the .taskcluster.yml file before pushing it to\nthe repository.\nRead more about the .taskcluster.yml file in the [documentation](https://docs.taskcluster.net/docs/reference/integrations/github/taskcluster-yml-v1)",
+				Stability:   "experimental",
+				Method:      "post",
+				Route:       "/taskcluster-yml",
+				Args:        []string{},
+				Query:       []string{},
+				Input:       "v1/render-taskcluster-yml-input.json#",
 			},
 			definitions.Entry{
 				Name:        "heartbeat",

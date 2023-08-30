@@ -6,13 +6,13 @@ import (
 	"log"
 	"time"
 
-	tcclient "github.com/taskcluster/taskcluster/v52/clients/client-go"
-	"github.com/taskcluster/taskcluster/v52/clients/client-go/tcworkermanager"
-	"github.com/taskcluster/taskcluster/v52/tools/worker-runner/cfg"
-	"github.com/taskcluster/taskcluster/v52/tools/worker-runner/provider/provider"
-	"github.com/taskcluster/taskcluster/v52/tools/worker-runner/run"
-	"github.com/taskcluster/taskcluster/v52/tools/worker-runner/tc"
-	"github.com/taskcluster/taskcluster/v52/tools/workerproto"
+	tcclient "github.com/taskcluster/taskcluster/v54/clients/client-go"
+	"github.com/taskcluster/taskcluster/v54/clients/client-go/tcworkermanager"
+	"github.com/taskcluster/taskcluster/v54/tools/worker-runner/cfg"
+	"github.com/taskcluster/taskcluster/v54/tools/worker-runner/provider/provider"
+	"github.com/taskcluster/taskcluster/v54/tools/worker-runner/run"
+	"github.com/taskcluster/taskcluster/v54/tools/worker-runner/tc"
+	"github.com/taskcluster/taskcluster/v54/tools/workerproto"
 )
 
 const TERMINATION_PATH = "/meta-data/spot/termination-time"
@@ -32,17 +32,17 @@ func (p *AWSProvider) ConfigureRun(state *run.State) error {
 
 	userData, err := p.metadataService.queryUserData()
 	if err != nil {
-		return fmt.Errorf("Could not query user data: %v", err)
+		return fmt.Errorf("could not query user data: %v", err)
 	}
 
 	iid_string, iid_json, err := p.metadataService.queryInstanceIdentityDocument()
 	if err != nil {
-		return fmt.Errorf("Could not query instance identity document: %v", err)
+		return fmt.Errorf("could not query instance identity document: %v", err)
 	}
 
 	instanceIdentityDocumentSignature, err := p.metadataService.queryMetadata("/dynamic/instance-identity/signature")
 	if err != nil {
-		return fmt.Errorf("Could not query signature for the instance identity document: %v", err)
+		return fmt.Errorf("could not query signature for the instance identity document: %v", err)
 	}
 
 	state.RootURL = userData.RootURL
@@ -183,7 +183,7 @@ func new(
 	}
 
 	if _, err := metadataService.queryMetadata(TERMINATION_PATH); err == nil {
-		return nil, errors.New("Instance is about to shutdown")
+		return nil, errors.New("instance is about to shutdown")
 	}
 
 	return &AWSProvider{

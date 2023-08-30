@@ -26,20 +26,20 @@ import (
 	docopt "github.com/docopt/docopt-go"
 	sysinfo "github.com/elastic/go-sysinfo"
 	"github.com/mcuadros/go-defaults"
-	tcclient "github.com/taskcluster/taskcluster/v52/clients/client-go"
-	"github.com/taskcluster/taskcluster/v52/clients/client-go/tcqueue"
-	"github.com/taskcluster/taskcluster/v52/internal"
-	"github.com/taskcluster/taskcluster/v52/internal/mocktc/tc"
-	"github.com/taskcluster/taskcluster/v52/internal/scopes"
-	"github.com/taskcluster/taskcluster/v52/workers/generic-worker/artifacts"
-	"github.com/taskcluster/taskcluster/v52/workers/generic-worker/errorreport"
-	"github.com/taskcluster/taskcluster/v52/workers/generic-worker/expose"
-	"github.com/taskcluster/taskcluster/v52/workers/generic-worker/fileutil"
-	"github.com/taskcluster/taskcluster/v52/workers/generic-worker/graceful"
-	"github.com/taskcluster/taskcluster/v52/workers/generic-worker/gwconfig"
-	"github.com/taskcluster/taskcluster/v52/workers/generic-worker/host"
-	"github.com/taskcluster/taskcluster/v52/workers/generic-worker/process"
-	gwruntime "github.com/taskcluster/taskcluster/v52/workers/generic-worker/runtime"
+	tcclient "github.com/taskcluster/taskcluster/v54/clients/client-go"
+	"github.com/taskcluster/taskcluster/v54/clients/client-go/tcqueue"
+	"github.com/taskcluster/taskcluster/v54/internal"
+	"github.com/taskcluster/taskcluster/v54/internal/mocktc/tc"
+	"github.com/taskcluster/taskcluster/v54/internal/scopes"
+	"github.com/taskcluster/taskcluster/v54/workers/generic-worker/artifacts"
+	"github.com/taskcluster/taskcluster/v54/workers/generic-worker/errorreport"
+	"github.com/taskcluster/taskcluster/v54/workers/generic-worker/expose"
+	"github.com/taskcluster/taskcluster/v54/workers/generic-worker/fileutil"
+	"github.com/taskcluster/taskcluster/v54/workers/generic-worker/graceful"
+	"github.com/taskcluster/taskcluster/v54/workers/generic-worker/gwconfig"
+	"github.com/taskcluster/taskcluster/v54/workers/generic-worker/host"
+	"github.com/taskcluster/taskcluster/v54/workers/generic-worker/process"
+	gwruntime "github.com/taskcluster/taskcluster/v54/workers/generic-worker/runtime"
 	"github.com/xeipuuv/gojsonschema"
 )
 
@@ -209,6 +209,9 @@ func loadConfig(configFile *gwconfig.File) error {
 			InteractivePort:                53654,
 			LiveLogExecutable:              "livelog",
 			LiveLogPortBase:                60098,
+			LoopbackAudioDeviceNumber:      16,
+			LoopbackVideoDeviceNumber:      0,
+			MaxTaskRunTime:                 86400, // 86400s is 24 hours
 			NumberOfTasksToRun:             0,
 			ProvisionerID:                  "test-provisioner",
 			RequiredDiskSpaceMegabytes:     10240,
@@ -282,7 +285,7 @@ func setupExposer() (err error) {
 			authClientFactory,
 		)
 	} else {
-		exposer, err = expose.NewLocal(config.PublicIP)
+		exposer, err = expose.NewLocal(config.PublicIP, config.LiveLogExposePort)
 	}
 	return err
 }
@@ -576,6 +579,7 @@ func ClaimWork() *TaskRun {
 			featureArtifacts:  map[string]string{},
 			LocalClaimTime:    localClaimTime,
 		}
+		defaults.SetDefaults(&task.Payload)
 		task.StatusManager = NewTaskStatusManager(task)
 		return task
 	}
@@ -583,52 +587,26 @@ func ClaimWork() *TaskRun {
 
 func (task *TaskRun) validatePayload() *CommandExecutionError {
 	jsonPayload := task.Definition.Payload
-	schemaLoader := gojsonschema.NewStringLoader(JSONSchema())
-	docLoader := gojsonschema.NewStringLoader(string(jsonPayload))
-	result, err := gojsonschema.Validate(schemaLoader, docLoader)
-	if err != nil {
-		return MalformedPayloadError(err)
+	validateErr := task.validateJSON(jsonPayload, JSONSchema())
+	if validateErr != nil {
+		return validateErr
 	}
-	if !result.Valid() {
-		task.Errorf("Task payload for this worker type must conform to the following jsonschema:\n%s", JSONSchema())
-		task.Error("TASK FAIL since the task payload is invalid. See errors:")
-		for _, desc := range result.Errors() {
-			task.Errorf("- %s", desc)
+	payload := map[string]interface{}{}
+	err := json.Unmarshal(jsonPayload, &payload)
+	if err != nil {
+		panic(err)
+	}
+	if _, exists := payload["image"]; exists {
+		task.Info("Docker Worker payload detected. Converting to a Generic Worker payload using d2g.")
+		err := task.convertDockerWorkerPayload()
+		if err != nil {
+			return err
 		}
-		// Dealing with Invalid Task Payloads
-		// ----------------------------------
-		// If the task payload is malformed or invalid, keep in mind that the
-		// queue doesn't validate the contents of the `task.payload` property,
-		// the worker may resolve the current run by reporting an exception.
-		// When reporting an exception, using `tcqueue.ReportException` the
-		// worker should give a `reason`. If the worker is unable execute the
-		// task specific payload/code/logic, it should report exception with
-		// the reason `malformed-payload`.
-		//
-		// This can also be used if an external resource that is referenced in
-		// a declarative nature doesn't exist. Generally, it should be used if
-		// we can be certain that another run of the task will have the same
-		// result. This differs from `tcqueue.ReportFailed` in the sense that we
-		// report a failure if the task specific code failed.
-		//
-		// Most tasks includes a lot of declarative steps, such as poll a
-		// docker image, create cache folder, decrypt encrypted environment
-		// variables, set environment variables and etc. Clearly, if decryption
-		// of environment variables fail, there is no reason to retry the task.
-		// Nor can it be said that the task failed, because the error wasn't
-		// caused by execution of Turing complete code.
-		//
-		// If however, we run some executable code referenced in `task.payload`
-		// and the code crashes or exists non-zero, then the task is said to be
-		// failed. The difference is whether or not the unexpected behavior
-		// happened before or after the execution of task specific Turing
-		// complete code.
-		return MalformedPayloadError(fmt.Errorf("Validation of payload failed for task %v", task.TaskID))
-	}
-	defaults.SetDefaults(&task.Payload)
-	err = json.Unmarshal(jsonPayload, &task.Payload)
-	if err != nil {
-		return MalformedPayloadError(err)
+	} else {
+		err := json.Unmarshal(jsonPayload, &task.Payload)
+		if err != nil {
+			panic(err)
+		}
 	}
 	for _, artifact := range task.Payload.Artifacts {
 		// The default artifact expiry is task expiry, but is only applied when
@@ -648,9 +626,67 @@ func (task *TaskRun) validatePayload() *CommandExecutionError {
 			}
 		}
 	}
+	if task.Payload.MaxRunTime > int64(config.MaxTaskRunTime) {
+		return MalformedPayloadError(fmt.Errorf("Task's maxRunTime of %d exceeded allowed maximum of %d", task.Payload.MaxRunTime, config.MaxTaskRunTime))
+	}
 	return nil
 }
 
+func (task *TaskRun) validateJSON(input []byte, schema string) *CommandExecutionError {
+	// Parse the JSON schema
+	schemaLoader := gojsonschema.NewStringLoader(schema)
+	documentLoader := gojsonschema.NewBytesLoader(input)
+
+	// Perform the validation
+	result, err := gojsonschema.Validate(schemaLoader, documentLoader)
+	if err != nil {
+		return MalformedPayloadError(err)
+	}
+
+	// Check if the validation failed
+	if result.Valid() {
+		return nil
+	}
+
+	task.Errorf("Task payload for this worker type must conform to the following jsonschema:\n%s", schema)
+	task.Error("TASK FAIL since the task payload is invalid. See errors:")
+	for _, desc := range result.Errors() {
+		task.Errorf("- %s", desc)
+	}
+	// Dealing with Invalid Task Payloads
+	// ----------------------------------
+	// If the task payload is malformed or invalid, keep in mind that the
+	// queue doesn't validate the contents of the `task.payload` property,
+	// the worker may resolve the current run by reporting an exception.
+	// When reporting an exception, using `tcqueue.ReportException` the
+	// worker should give a `reason`. If the worker is unable execute the
+	// task specific payload/code/logic, it should report exception with
+	// the reason `malformed-payload`.
+	//
+	// This can also be used if an external resource that is referenced in
+	// a declarative nature doesn't exist. Generally, it should be used if
+	// we can be certain that another run of the task will have the same
+	// result. This differs from `tcqueue.ReportFailed` in the sense that we
+	// report a failure if the task specific code failed.
+	//
+	// Most tasks includes a lot of declarative steps, such as poll a
+	// docker image, create cache folder, decrypt encrypted environment
+	// variables, set environment variables and etc. Clearly, if decryption
+	// of environment variables fail, there is no reason to retry the task.
+	// Nor can it be said that the task failed, because the error wasn't
+	// caused by execution of Turing complete code.
+	//
+	// If however, we run some executable code referenced in `task.payload`
+	// and the code crashes or exists non-zero, then the task is said to be
+	// failed. The difference is whether or not the unexpected behavior
+	// happened before or after the execution of task specific Turing
+	// complete code.
+	return MalformedPayloadError(fmt.Errorf("Validation of payload failed for task %v", task.TaskID))
+}
+
+// CommandExecutionError wraps error Cause which has occurred during task
+// execution, which should result in the task being resolved as
+// TaskStatus/Reason (e.g. exception/malformed-payload)
 type CommandExecutionError struct {
 	TaskStatus TaskStatus
 	Cause      error
@@ -668,14 +704,17 @@ func executionError(reason TaskUpdateReason, status TaskStatus, err error) *Comm
 	}
 }
 
+// task exception/resource-unavailable error, caused by underlying error err
 func ResourceUnavailable(err error) *CommandExecutionError {
 	return executionError(resourceUnavailable, errored, err)
 }
 
+// task exception/malformed-payload error, caused by underlying error err
 func MalformedPayloadError(err error) *CommandExecutionError {
 	return executionError(malformedPayload, errored, err)
 }
 
+// task failure, caused by underlying error err
 func Failure(err error) *CommandExecutionError {
 	return executionError("", failed, err)
 }
@@ -767,6 +806,7 @@ func (task *TaskRun) ExecuteCommand(index int) *CommandExecutionError {
 	return nil
 }
 
+// ExecutionErrors is a growable slice of errors to collect command execution errors as they occur
 type ExecutionErrors []*CommandExecutionError
 
 func (e *ExecutionErrors) add(err *CommandExecutionError) {

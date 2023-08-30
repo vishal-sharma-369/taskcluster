@@ -15,8 +15,8 @@ import (
 
 	"github.com/taskcluster/httpbackoff/v3"
 	tcUrls "github.com/taskcluster/taskcluster-lib-urls"
-	tcclient "github.com/taskcluster/taskcluster/v52/clients/client-go"
-	tc "github.com/taskcluster/taskcluster/v52/tools/taskcluster-proxy/taskcluster"
+	tcclient "github.com/taskcluster/taskcluster/v54/clients/client-go"
+	tc "github.com/taskcluster/taskcluster/v54/tools/taskcluster-proxy/taskcluster"
 )
 
 // Routes represents the context of the running service
@@ -201,7 +201,7 @@ func (routes *Routes) APIHandler(res http.ResponseWriter, req *http.Request) {
 		// apiVersion, path, query) based on the configured RootURL.
 		targetPath, err = url.Parse(tcUrls.API(routes.RootURL, match[1], match[2], match[3]+query))
 	} else {
-		err = fmt.Errorf("Invalid /api path")
+		err = fmt.Errorf("invalid /api path")
 	}
 
 	if err != nil {
@@ -249,7 +249,7 @@ func (routes *Routes) commonHandler(res http.ResponseWriter, req *http.Request, 
 	httpCall := func() (*http.Response, error, error) {
 		proxyreq, err := http.NewRequest(req.Method, targetPath.String(), bytes.NewReader(body))
 		if err != nil {
-			return nil, nil, fmt.Errorf("Error constructing request: %s", err)
+			return nil, nil, fmt.Errorf("error constructing request: %s", err)
 		}
 		for k, v := range req.Header {
 			proxyreq.Header[k] = v

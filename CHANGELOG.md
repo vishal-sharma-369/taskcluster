@@ -3,11 +3,350 @@
 <!-- `yarn release` will insert the existing changelog snippets here: -->
 <!-- NEXT RELEASE HERE -->
 
+## v54.4.2
+
+### GENERAL
+
+▶ [patch]
+Upgrades go to 1.21.0 and node to 18.17.1
+
+### USERS
+
+▶ [patch] [#6440](https://github.com/taskcluster/taskcluster/issues/6440)
+Generic Worker now allocates a pseudo tty when running Docker Worker tasks, to
+emulate Docker Worker behavior. Previously it did not allocate a tty, which
+could result in e.g. output not being colored.
+
+### OTHER
+
+▶ Additional changes not described here: [#6400](https://github.com/taskcluster/taskcluster/issues/6400), [#6414](https://github.com/taskcluster/taskcluster/issues/6414), [#6442](https://github.com/taskcluster/taskcluster/issues/6442).
+
+### Automated Package Updates
+
+<details>
+<summary>11 Dependabot/Renovate updates</summary>
+
+* build(deps-dev): bump eslint in /clients/client-web (7b132ce69)
+* build(deps-dev): bump zen-observable from 0.8.15 to 0.10.0 (b6098fade)
+* build(deps): bump github.com/iancoleman/strcase from 0.2.0 to 0.3.0 (deea49585)
+* build(deps-dev): bump @babel/core in /clients/client-web (c5e7d8ab6)
+* build(deps-dev): bump karma-coverage in /clients/client-web (8c0c79322)
+* build(deps): bump pyyaml from 6.0 to 6.0.1 in /taskcluster (f818ba817)
+* build(deps): bump taskcluster from 54.1.2 to 54.4.1 in /taskcluster (06d02af96)
+* build(deps-dev): bump nock from 13.3.1 to 13.3.2 in /clients/client (58f394be6)
+* build(deps): bump aws-sdk from 2.1376.0 to 2.1426.0 (bfb701686)
+* build(deps): bump golang.org/x/tools from 0.11.0 to 0.11.1 (7420158d5)
+* build(deps): bump certifi from 2023.5.7 to 2023.7.22 in /taskcluster (5f364270a)
+
+</details>
+
+## v54.4.1
+
+### GENERAL
+
+▶ [patch]
+Upgrade Node.js to 18.17.0.
+
+### ADMINS
+
+▶ [patch] [#6405](https://github.com/taskcluster/taskcluster/issues/6405)
+Expire artifacts job no longer logs errors for each missing artifact. Instead it reports the number of missing artifacts at the end of the job.
+
+### USERS
+
+▶ [patch]
+Adds a task log letting the user know their Docker Worker payload is being converted to a Generic Worker payload using d2g.
+
+### Automated Package Updates
+
+<details>
+<summary>1 Dependabot/Renovate updates</summary>
+
+* build(deps): bump aiohttp from 3.8.4 to 3.8.5 in /taskcluster (56a9903ae)
+
+</details>
+
+## v54.4.0
+
+### USERS
+
+▶ [minor] [#5961](https://github.com/taskcluster/taskcluster/issues/5961)
+Generic Worker now supports the `osGroups` feature on macOS, Linux and
+FreeBSD. Support was already added to Windows in Generic Worker 6.0.0.
+
+Example Linux/macOS task (requires `docker` to be installed on worker):
+
+```
+created: <timestamp>
+deadline: <timestamp>
+workerType: my-worker-type
+provisionerId: mv-provisioner-id
+scopes:
+  - generic-worker:os-group:my-provisioner-id/my-worker-type/docker
+payload:
+  osGroups:
+    - docker
+  command:
+    - - docker
+      - run
+      - --rm
+      - ubuntu:latest
+      - /usr/bin/echo
+      - hello
+  maxRunTime: 60
+metadata:
+  name: Ubuntu - docker test
+  owner: pmoore@mozilla.com
+  source: https://github.com/taskcluster/taskcluster/pull/6397
+  description: Test calling docker from a Generic Worker task
+```
+
+## v54.3.1
+
+### GENERAL
+
+▶ [patch] [#6420](https://github.com/taskcluster/taskcluster/issues/6420)
+Fixes generic worker issue where artifacts were no longer being uploaded.
+
+## v54.3.0
+
+### ADMINS
+
+▶ [patch] [#6405](https://github.com/taskcluster/taskcluster/issues/6405)
+Expire artifacts handles the case where the artifact is not found during deletion. GCS behaves differently to S3 here, as it will throw an error if the artifact is not found, where S3 would always return 204.
+
+### USERS
+
+▶ [minor] [#5967](https://github.com/taskcluster/taskcluster/issues/5967)
+This change integrates the `d2g` tool into Generic Worker so that it can accept a valid, Docker Worker payload.
+
+▶ [patch] [#6417](https://github.com/taskcluster/taskcluster/issues/6417)
+Generic Worker: Interactive sessions suffered from a race condition that was introduced in Generic Worker 54.2.0. This has been fixed.
+
+## v54.2.0
+
+### USERS
+
+▶ [minor] [#6405](https://github.com/taskcluster/taskcluster/issues/6405)
+Expire artifacts supports both bulk deletion and single deletion. This can be configured for the deployment using `AWS_USE_BULK_DELETE` environment variable (`false` by default). This is needed because not all S3 compatible storages support bulk delete, specifically [GCS](https://cloud.google.com/storage/docs/migrating#methods-comparison).
+`EXPIRE_ARTIFACTS_BATCH_SIZE` can be used to control how many records to process at once, i.e. how many parallel delete requests would be sent to storage service (`100` by default).
+
+### DEVELOPERS
+
+▶ [patch] [#6395](https://github.com/taskcluster/taskcluster/issues/6395)
+Fixed local development environment where artifacts could not be loaded in the UI. This was caused by not using pinned `minio/*` images.
+
+▶ [patch] [#6395](https://github.com/taskcluster/taskcluster/issues/6395)
+Local development environment now supports live log.
+
+## v54.1.4
+
+### GENERAL
+
+▶ [patch]
+Upgrades to go1.20.6 which is a security release.
+
+>go1.20.6 (released 2023-07-11) includes a security fix to the net/http package, as well as bug fixes to the compiler, cgo, the cover tool, the go command, the runtime, and the crypto/ecdsa, go/build, go/printer, net/mail, and text/template packages. See the [Go 1.20.6 milestone](https://github.com/golang/go/issues?q=milestone%3AGo1.20.6+label%3ACherryPickApproved) on our issue tracker for details.
+
+### USERS
+
+▶ [patch]
+Hooks page improvements: extra schedule and exchanges displayed as Badge with a proper tooltip.
+
+## v54.1.3
+
+### GENERAL
+
+▶ [patch]
+This change updates `d2g` to return the resulting generic worker payload with a `125` exit status code in the retry array to fix an intermittent podman issue while pulling the docker image.
+
+### USERS
+
+▶ [patch]
+Hooks page now displays table instead of tree view. Table view includes extra information that might be helpful to spot issues with hooks. Most recent task with state is displayed if available, or error if last fire was not successful.
+
+▶ [patch]
+UI: Refactors how validation schemas are loaded, to ensure they are only fetched and added once to prevent duplicate schema exceptions.
+
+### OTHER
+
+▶ Additional change not described here: [#6380](https://github.com/taskcluster/taskcluster/issues/6380).
+
+## v54.1.2
+
+### USERS
+
+▶ [patch] [#6330](https://github.com/taskcluster/taskcluster/issues/6330)
+Fixes UI errors on pages that were loading metaschema twice.
+
+### DEVELOPERS
+
+▶ [patch]
+Upgrades some rust crates and bumps rust version from 1.65.0 to 1.70.0.
+
+## v54.1.1
+
+### GENERAL
+
+▶ [patch]
+Upgrades to go1.20.5 from go1.19.10.
+
+## v54.1.0
+
+### USERS
+
+▶ [minor]
+This change adds the `d2g` subcommand to the `taskcluster` cli.
+
+It can be used to translate a Docker Worker payload to a Generic Worker payload.
+Both the input and output are JSON. You can either pass the input as a file or pipe it in to the command.
+
+View help with:
+
+```shell
+taskcluster d2g -h
+```
+
+Example usages:
+
+```shell
+taskcluster d2g -f /path/to/input.json
+```
+
+_OR_
+
+```shell
+taskcluster d2g --file /path/to/input.json
+```
+
+_OR_
+
+```shell
+cat /path/to/input.json | taskcluster d2g
+```
+
+_OR_
+
+```shell
+echo '{"image": "ubuntu", "command": ["bash", "-c", "echo hello world"], "maxRunTime": 300}' | taskcluster d2g
+```
+
+▶ [patch]
+Fixes UI redirect where query parameters were not preserved. This broke changelog link from the sidebar.
+
+### OTHER
+
+▶ Additional change not described here: [#6340](https://github.com/taskcluster/taskcluster/issues/6340).
+
+## v54.0.0
+
+### USERS
+
+▶ [MAJOR]
+Remove python 3.7 support as it's hit the EoL date, 2023-06-27.
+
+More info on the python 3.7 release schedule can be found [here](https://peps.python.org/pep-0537/).
+
+▶ [minor] [#6248](https://github.com/taskcluster/taskcluster/issues/6248)
+Hooks service returns task state with lastFires call. This state is also showed in UI, along with the "Fire Status", which only indicate if task was succesfully created, but does not show if the task completed succesfully or not.
+
+## v53.2.1
+
+### GENERAL
+
+▶ [patch] [#6237](https://github.com/taskcluster/taskcluster/issues/6237)
+Fix the case where a generic worker won't upload its log on a malformed payload error. This has been broken since v48.2.0 from PR [#6107](https://github.com/taskcluster/taskcluster/pull/6107).
+
+## v53.2.0
+
+### GENERAL
+
+▶ [minor]
+Migrate [d2g](https://github.com/taskcluster/d2g) to `tools/d2g`.
+
+▶ [patch]
+Stop running docker-worker tests in the CI.
+
+The tests will remain in the monorepo because we'll look into using them with generic worker once d2g is integrated.
+
+▶ [patch]
+Upgrade Node.js version to 18.16.1 (security release).
+
+More information can be found [here](https://nodejs.org/en/blog/vulnerability/june-2023-security-releases).
+
+### ADMINS
+
+▶ [minor] [#6142](https://github.com/taskcluster/taskcluster/issues/6142)
+Worker manager stops instances that are not active in queue after short timeout.
+This is to prevent instances from running when worker fails to start claiming work or dies and does not reclaims task.
+
+## v53.1.0
+
+### USERS
+
+▶ [minor] [#5994](https://github.com/taskcluster/taskcluster/issues/5994)
+Generic Worker: Adds `task.payload.feature.loopbackVideo` for loopback video device support on Linux.
+
+The `v4l2loopback` kernel module must be installed on the host system for this feature to work, although it does not _need_ to be loaded. Generic Worker loads the module with `modprobe` and generates the virtual video device with a `v4l2loopback` command. Under the multiuser engine, it also manages file ownership of the device with `chown` to ensure that only tasks with suitable scopes have read/write access to the virtual device.
+
+For tasks that enable the feature, the virtual video device location will be provided to the task commands via the environment variable `TASKCLUSTER_VIDEO_DEVICE`. The value of the environment variable depends on deployment configuration, and therefore tasks should not assume a fixed value. Its value will however take the form `/dev/video<DEVICE_NUMBER>` where `<DEVICE_NUMBER>` is an integer between 0 and 255. The Generic Worker config setting `loopbackVideoDeviceNumber` may be used to change the device number. Future releases of Generic Worker may provide the capability of having more than one virtual video device; currently only one virtual video device is supported.
+
+▶ [patch] [#6326](https://github.com/taskcluster/taskcluster/issues/6326)
+Running `taskcluster group list` without a task group ID now outputs error message:
+
+```
+Error: list expects argument <taskGroupId>
+```
+
+Previously, it incorrectly outputted:
+
+```
+Error: list expects argument <taskId>
+```
+
+## v53.0.0
+
+### GENERAL
+
+▶ [minor]
+This essentially reverts the change in [#6279](https://github.com/taskcluster/taskcluster/pull/6279).
+
+We learned from RelOps that the simple engine is useful for running generic worker inside a VM and inside of docker containers.
+
+▶ [patch]
+Upgrade to go 1.19.10.
+
+> go1.19.10 (released 2023-06-06) includes four security fixes to the cmd/go and runtime packages, as well as bug fixes to the compiler, the go command, and the runtime.
+
+### ADMINS
+
+▶ [minor] [#6247](https://github.com/taskcluster/taskcluster/issues/6247)
+Revert worker-manager from quarantining workers on removal that was introduced in [PR 6267](https://github.com/taskcluster/taskcluster/pull/6267).
+
+### USERS
+
+▶ [MAJOR]
+Rework the interactive feature for generic worker allowing to run interactive commands in it
+
+▶ [patch]
+Introduced `github.renderTaskclusterYml` endpoint to render provided `.taskcluster.yml` file for various events.
+This might be used for debug purposes or to validate the .taskcluster.yml file
+and make sure that resulting tasks and scopes produce expected values.
+
+### DEVELOPERS
+
+▶ [patch]
+Enables CORS for API for local docker-compose development.
+
+### OTHER
+
+▶ Additional change not described here: [#6280](https://github.com/taskcluster/taskcluster/issues/6280).
+
 ## v52.0.0
 
 ### GENERAL
 
-▶ [MAJOR] [#6227](https://github.com/taskcluster/taskcluster/issues/6227)
+▶ [MAJOR] [#6277](https://github.com/taskcluster/taskcluster/issues/6277)
 Generic Worker Simple engine is no longer _released_. It can still be built from source, but since it was never intended to be used as a production engine, and was only intended to support development (e.g. for running unit tests or running in a simple dev deployment) the simple engine binaries are no longer released.
 
 ### WORKER-DEPLOYERS

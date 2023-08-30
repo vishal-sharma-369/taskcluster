@@ -10,7 +10,7 @@ import (
 	"reflect"
 	"sync"
 
-	tcclient "github.com/taskcluster/taskcluster/v52/clients/client-go"
+	tcclient "github.com/taskcluster/taskcluster/v54/clients/client-go"
 )
 
 type (
@@ -43,6 +43,10 @@ type (
 		InteractivePort                uint16                 `json:"interactivePort"`
 		LiveLogExecutable              string                 `json:"livelogExecutable"`
 		LiveLogPortBase                uint16                 `json:"livelogPortBase"`
+		LiveLogExposePort              uint16                 `json:"livelogExposePort"`
+		LoopbackAudioDeviceNumber      uint8                  `json:"loopbackAudioDeviceNumber"`
+		LoopbackVideoDeviceNumber      uint8                  `json:"loopbackVideoDeviceNumber"`
+		MaxTaskRunTime                 uint32                 `json:"maxTaskRunTime"`
 		NumberOfTasksToRun             uint                   `json:"numberOfTasksToRun"`
 		PrivateIP                      net.IP                 `json:"privateIP"`
 		ProvisionerID                  string                 `json:"provisionerId"`

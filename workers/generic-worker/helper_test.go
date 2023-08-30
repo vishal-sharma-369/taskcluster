@@ -24,12 +24,13 @@ import (
 	"github.com/pborman/uuid"
 	"github.com/taskcluster/httpbackoff/v3"
 	"github.com/taskcluster/slugid-go/slugid"
-	tcclient "github.com/taskcluster/taskcluster/v52/clients/client-go"
-	"github.com/taskcluster/taskcluster/v52/clients/client-go/tcqueue"
-	"github.com/taskcluster/taskcluster/v52/internal/mocktc"
-	"github.com/taskcluster/taskcluster/v52/internal/mocktc/tc"
-	"github.com/taskcluster/taskcluster/v52/workers/generic-worker/fileutil"
-	"github.com/taskcluster/taskcluster/v52/workers/generic-worker/gwconfig"
+	tcclient "github.com/taskcluster/taskcluster/v54/clients/client-go"
+	"github.com/taskcluster/taskcluster/v54/clients/client-go/tcqueue"
+	"github.com/taskcluster/taskcluster/v54/internal/mocktc"
+	"github.com/taskcluster/taskcluster/v54/internal/mocktc/tc"
+	"github.com/taskcluster/taskcluster/v54/tools/d2g/dockerworker"
+	"github.com/taskcluster/taskcluster/v54/workers/generic-worker/fileutil"
+	"github.com/taskcluster/taskcluster/v54/workers/generic-worker/gwconfig"
 )
 
 var (
@@ -58,14 +59,14 @@ func testWorkerType() string {
 	return "test-" + strings.ToLower(strings.Replace(slugid.Nice(), "_", "", -1)) + "-a"
 }
 
-func scheduleTask(t *testing.T, td *tcqueue.TaskDefinitionRequest, payload GenericWorkerPayload) (taskID string) {
+func scheduleTask[P GenericWorkerPayload | dockerworker.DockerWorkerPayload](t *testing.T, td *tcqueue.TaskDefinitionRequest, payload P) (taskID string) {
 	t.Helper()
 	taskID = slugid.Nice()
 	scheduleNamedTask(t, td, payload, taskID)
 	return
 }
 
-func scheduleNamedTask(t *testing.T, td *tcqueue.TaskDefinitionRequest, payload GenericWorkerPayload, taskID string) {
+func scheduleNamedTask[P GenericWorkerPayload | dockerworker.DockerWorkerPayload](t *testing.T, td *tcqueue.TaskDefinitionRequest, payload P, taskID string) {
 	t.Helper()
 	if td.Payload == nil {
 		b, err := json.Marshal(&payload)
@@ -199,7 +200,7 @@ func LogText(t *testing.T) string {
 	return string(bytes)
 }
 
-func submitAndAssert(t *testing.T, td *tcqueue.TaskDefinitionRequest, payload GenericWorkerPayload, state, reason string) (taskID string) {
+func submitAndAssert[P GenericWorkerPayload | dockerworker.DockerWorkerPayload](t *testing.T, td *tcqueue.TaskDefinitionRequest, payload P, state, reason string) (taskID string) {
 	t.Helper()
 	taskID = scheduleTask(t, td, payload)
 	ensureResolution(t, taskID, state, reason)
@@ -371,6 +372,7 @@ func GWTest(t *testing.T) *Test {
 			// These ports are not exposed outside of the host. However, in CI they must differ from those of the
 			// generic-worker instance running the test suite.
 			LiveLogPortBase:    30583,
+			MaxTaskRunTime:     300,
 			NumberOfTasksToRun: 1,
 			PrivateIP:          net.ParseIP("87.65.43.21"),
 			ProvisionerID:      "test-provisioner",
@@ -564,7 +566,13 @@ func (expectedArtifacts ExpectedArtifacts) Validate(t *testing.T, taskID string,
 				t.Errorf("Artifact '%s': Could not find substring %q in '%s'", artifactName, requiredSubstring, string(b))
 			}
 		}
-		if actualContentEncoding := rawResp.Header.Get("Content-Encoding"); actualContentEncoding != expected.ContentEncoding {
+		actualContentEncoding := rawResp.Header.Get("Content-Encoding")
+		if actualContentEncoding == "" {
+			// GCS only sends content-encoding header when its not identity
+			// x-goog-stored-content-encoding should always be present
+			actualContentEncoding = rawResp.Header.Get("x-goog-stored-content-encoding")
+		}
+		if actualContentEncoding != expected.ContentEncoding {
 			t.Errorf("Expected Content-Encoding %q but got Content-Encoding %q for artifact %q from url %v", expected.ContentEncoding, actualContentEncoding, artifactName, url)
 		}
 		if actualContentType := resp.Header.Get("Content-Type"); actualContentType != expected.ContentType {
@@ -595,8 +603,13 @@ func getArtifactContentWithResponses(t *testing.T, taskID string, artifact strin
 	tr := &http.Transport{
 		DisableCompression: true,
 	}
+	req, err := http.NewRequest("GET", url.String(), nil)
+	if err != nil {
+		t.Fatalf("Error creating GET request for url %v", url)
+	}
+	req.Header.Set("Accept-Encoding", "gzip")
 	client := &http.Client{Transport: tr}
-	rawResp, _, err := httpbackoff.ClientGet(client, url.String())
+	rawResp, _, err := httpbackoff.ClientDo(client, req)
 	if err != nil {
 		t.Fatalf("Error trying to fetch decompressed artifact from signed URL %s ...\n%s", url.String(), err)
 	}

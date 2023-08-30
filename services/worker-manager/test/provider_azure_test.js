@@ -140,7 +140,6 @@ helper.secrets.mockSuite(testing.suiteName(), [], function(mock, skipping) {
         storageAccountName: 'storage123',
         _backoffDelay: 1,
       },
-      queue: helper.queue,
     });
 
     // So that checked-in certs are still valid
@@ -869,11 +868,6 @@ helper.secrets.mockSuite(testing.suiteName(), [], function(mock, skipping) {
       await provider.deprovisionResources({ worker, monitor });
       await assertRemovalState({ ip: 'none', nic: 'none', disks: ['none', 'none'], vm: 'none' });
       assert.equal(worker.state, 'stopped');
-
-      debug('quarantineWorker was called');
-      const lastQuarantine = helper.queue.quarantines[helper.queue.quarantines.length - 1];
-      assert.equal(lastQuarantine.workerId, worker.workerId);
-      assert.equal(lastQuarantine.payload.quarantineInfo, 'test');
     });
 
     test('vm removal fails (keeps waiting)', async function() {
@@ -1149,6 +1143,39 @@ helper.secrets.mockSuite(testing.suiteName(), [], function(mock, skipping) {
       assert(worker.state === 'requested');
       assert(!provider.removeWorker.called);
       assert(provider.provisionResources.called);
+    });
+
+    test('remove zombie worker with no queue activity', async function () {
+      await setState({ state: 'running', powerStates: ['ProvisioningState/succeeded', 'PowerState/running'] });
+      await worker.update(helper.db, worker => {
+        worker.providerData.queueInactivityTimeout = 1;
+      });
+      worker.firstClaim = null;
+      worker.lastDateActive = null;
+      await provider.checkWorker({ worker });
+      assert(provider.removeWorker.called);
+    });
+    test('remove zombie worker that was active long ago', async function () {
+      await setState({ state: 'running', powerStates: ['ProvisioningState/succeeded', 'PowerState/running'] });
+      await worker.update(helper.db, worker => {
+        worker.created = taskcluster.fromNow('-120 minutes');
+        worker.providerData.queueInactivityTimeout = 120;
+      });
+      worker.firstClaim = taskcluster.fromNow('-110 minutes');
+      worker.lastDateActive = taskcluster.fromNow('-100 minutes');
+      await provider.checkWorker({ worker });
+      assert(provider.removeWorker.called);
+    });
+    test('doesn\'t remove zombie worker that was recently active', async function () {
+      await setState({ state: 'running', powerStates: ['ProvisioningState/succeeded', 'PowerState/running'] });
+      await worker.update(helper.db, worker => {
+        worker.created = taskcluster.fromNow('-120 minutes');
+        worker.providerData.queueInactivityTimeout = 60 * 60 * 4 * 1000;
+      });
+      worker.firstClaim = taskcluster.fromNow('-110 minutes');
+      worker.lastDateActive = taskcluster.fromNow('-100 minutes');
+      await provider.checkWorker({ worker });
+      assert(!provider.removeWorker.called);
     });
   });
 

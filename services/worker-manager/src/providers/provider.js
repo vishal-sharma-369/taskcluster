@@ -3,8 +3,6 @@ const libUrls = require('taskcluster-lib-urls');
 const slugid = require('slugid');
 const yaml = require('js-yaml');
 const { Worker, WorkerPoolError } = require('../data.js');
-const { splitWorkerPoolId } = require('../util.js');
-const taskcluster = require('taskcluster-client');
 
 /**
  * The parent class for all providers.
@@ -22,7 +20,6 @@ class Provider {
     validator,
     providerConfig,
     providerType,
-    queue,
   }) {
     this.providerId = providerId;
     this.monitor = monitor;
@@ -34,7 +31,6 @@ class Provider {
     this.Worker = Worker;
     this.WorkerPoolError = WorkerPoolError;
     this.providerType = providerType;
-    this.queue = queue;
   }
 
   async setup() {
@@ -88,18 +84,48 @@ class Provider {
     throw new ApiError('not supported for this provider');
   }
 
-  async quarantineWorker({ worker, reason = 'worker-manager: worker removed' }) {
-    const { provisionerId, workerType } = splitWorkerPoolId(worker.workerPoolId);
-    await this.queue.quarantineWorker(
-      provisionerId,
-      workerType,
-      worker.workerGroup,
-      worker.workerId,
-      {
-        quarantineUntil: taskcluster.fromNow('1 day'),
-        quarantineInfo: reason,
-      },
-    );
+  /**
+   * Spawned workers are expected to:
+   * 1. Start (instance is running)
+   * 2. Register (worker is registered with worker manager)
+   * 3. Do work (call queue.claimWork/queue.reclaimTask)
+   *
+   * If worker does not register within given timeout, it will be removed after `terminateAfter` time.
+   * If worker fails to call queue.claimWork, `queue_worker.first_claim` would be set to null.
+   * If worker does not call queue.reclaimTask or stops calling queue.claimWork,
+   * `queue_worker.last_date_active` would not be updated.
+   *
+   * Workers that are registered, but don't have `first_claim`
+   * or `last_date_active` is older than queueInactivityTimeout are considered to be zombies.
+   *
+   * Both `firstClaim` and `lastDateActive` are coming from queue service.
+   * Those get updated when worker calls queue methods.
+   */
+  static isZombie({ worker }) {
+    const queueInactivityTimeout = worker.providerData?.queueInactivityTimeout || 7200 * 1000;
+
+    const lastActiveAfter = Date.now() - queueInactivityTimeout;
+    const isOlderThanTimeout = (date) => date?.getTime() < lastActiveAfter;
+
+    let reason = null;
+    let isZombie = false;
+
+    if (!worker.firstClaim && isOlderThanTimeout(worker.created)) {
+      isZombie = true;
+      reason = `worker never claimed work, created=${worker.created}, queueInactivityTimeout=${queueInactivityTimeout / 1000}s`;
+    }
+
+    if (!worker.lastDateActive && isOlderThanTimeout(worker.firstClaim)) {
+      isZombie = true;
+      reason = `worker never reclaimed work, firstClaim=${worker.firstClaim}, queueInactivityTimeout=${queueInactivityTimeout / 1000}s`;
+    }
+
+    if (isOlderThanTimeout(worker.lastDateActive)) {
+      isZombie = true;
+      reason = `worker inactive, lastDateActive=${worker.lastDateActive}, queueInactivityTimeout=${queueInactivityTimeout / 1000}s`;
+    }
+
+    return { reason, isZombie };
   }
 
   /**
@@ -112,8 +138,11 @@ class Provider {
    * this is also set in the lifecycle schema so update there if
    * changing.
    */
-  static interpretLifecycle({ lifecycle: { registrationTimeout, reregistrationTimeout } = {} }) {
+  static interpretLifecycle({ lifecycle: {
+    registrationTimeout, reregistrationTimeout, queueInactivityTimeout,
+  } = {} }) {
     reregistrationTimeout = reregistrationTimeout || 345600;
+    queueInactivityTimeout = queueInactivityTimeout || 7200; // 2 hours by default
     let terminateAfter = null;
 
     if (registrationTimeout !== undefined && registrationTimeout < reregistrationTimeout) {
@@ -122,7 +151,11 @@ class Provider {
       terminateAfter = Date.now() + reregistrationTimeout * 1000;
     }
 
-    return { terminateAfter, reregistrationTimeout: reregistrationTimeout * 1000 };
+    return {
+      terminateAfter,
+      reregistrationTimeout: reregistrationTimeout * 1000,
+      queueInactivityTimeout: queueInactivityTimeout * 1000,
+    };
   }
 
   // Report an error concerning this worker pool.  This handles notifications and logging.

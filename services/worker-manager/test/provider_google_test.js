@@ -11,7 +11,6 @@ helper.secrets.mockSuite(testing.suiteName(), [], function(mock, skipping) {
   helper.withPulse(mock, skipping);
   helper.withFakeQueue(mock, skipping);
   helper.withFakeNotify(mock, skipping);
-  helper.withFakeQueue(mock, skipping);
   helper.resetTables(mock, skipping);
 
   let provider;
@@ -38,7 +37,6 @@ helper.secrets.mockSuite(testing.suiteName(), [], function(mock, skipping) {
         workerServiceAccountId: '12345',
         _backoffDelay: 1,
       },
-      queue: helper.queue,
     });
 
     await helper.db.fns.delete_worker_pool(workerPoolId);
@@ -195,6 +193,19 @@ helper.secrets.mockSuite(testing.suiteName(), [], function(mock, skipping) {
       // Check that this is setting times correctly to within a second or so to allow for some time
       // for the provisioning loop
       assert(worker.providerData.terminateAfter - new Date() - (6000 * 1000) < 5000);
+    });
+
+    provisionTest('queueInactivityTimeout', {
+      config: {
+        ...config,
+        lifecycle: {
+          queueInactivityTimeout: 600,
+        },
+      },
+      expectedWorkers: 1,
+    }, async workers => {
+      const worker = workers[0];
+      assert.equal(600000, worker.providerData.queueInactivityTimeout);
     });
 
     provisionTest('labels', {
@@ -378,36 +389,8 @@ helper.secrets.mockSuite(testing.suiteName(), [], function(mock, skipping) {
       state: 'requested',
       providerData: { zone: 'us-east1-a' },
     });
-    await provider.removeWorker({ worker, reason: 'meh' });
+    await provider.removeWorker({ worker });
     assert(fake.compute.instances.delete_called);
-
-    assert.equal(helper.queue.quarantines.length, 0); // instance not found, so no call
-  });
-
-  test('removeWorker quarantines it', async function() {
-    const workerId = '12345';
-    const worker = await makeWorker({
-      workerPoolId,
-      workerGroup: 'us-east1',
-      workerId,
-      providerId,
-      created: taskcluster.fromNow('0 seconds'),
-      lastModified: taskcluster.fromNow('0 seconds'),
-      lastChecked: taskcluster.fromNow('0 seconds'),
-      expires: taskcluster.fromNow('90 seconds'),
-      capacity: 1,
-      state: 'requested',
-      providerData: { zone: 'us-east1-a' },
-    });
-    fake.compute.instances.setFakeInstanceStatus(
-      project, 'us-east1-a', workerId,
-      'RUNNING');
-    await provider.removeWorker({ worker, reason: 'meh' });
-    assert(fake.compute.instances.delete_called);
-
-    const lastQuarantine = helper.queue.quarantines[helper.queue.quarantines.length - 1];
-    assert.equal(lastQuarantine.workerId, workerId);
-    assert.equal(lastQuarantine.payload.quarantineInfo, 'meh');
   });
 
   suite('checkWorker', function() {
@@ -522,24 +505,30 @@ helper.secrets.mockSuite(testing.suiteName(), [], function(mock, skipping) {
       assert(fake.compute.instances.delete_called);
 
       // the worker isn't marked as stopped until we see it disappear
-      assert.equal(worker.state, 'running');
+      assert.equal(worker.state, Worker.states.RUNNING);
       worker = await runCheckWorker(worker);
-      assert.equal(worker.state, 'stopped');
+      assert.equal(worker.state, Worker.states.STOPPED);
     });
 
     test('don\'t remove unregistered before terminateAfter', async function() {
       const terminateAfter = Date.now() + 1000;
-      let worker = await suiteMakeWorker({ providerData: { terminateAfter } });
+      let worker = await suiteMakeWorker({
+        created: taskcluster.fromNow('-30 minutes'),
+        providerData: { terminateAfter },
+      });
       fake.compute.instances.setFakeInstanceStatus(
         project, 'us-east1-a', workerId,
         'RUNNING');
       worker = await runCheckWorker(worker);
       assert(!fake.compute.instances.delete_called);
-      assert.equal(worker.state, 'running');
+      assert.equal(worker.state, Worker.states.RUNNING);
     });
     test('do not remove registered workers with stale terminateAfter', async function () {
       const terminateAfter = Date.now() - 1000;
-      let worker = await suiteMakeWorker({ providerData: { terminateAfter } });
+      let worker = await suiteMakeWorker({
+        created: taskcluster.fromNow('-30 minutes'),
+        providerData: { terminateAfter },
+      });
       fake.compute.instances.setFakeInstanceStatus(
         project, 'us-east1-a', workerId,
         'RUNNING');
@@ -551,6 +540,55 @@ helper.secrets.mockSuite(testing.suiteName(), [], function(mock, skipping) {
       worker = await runCheckWorker(worker);
       assert(!fake.compute.instances.delete_called);
       assert.equal(worker.state, 'running');
+    });
+    test('remove zombie worker with no queue activity', async function () {
+      const queueInactivityTimeout = 1;
+      let worker = await suiteMakeWorker({ providerData: { queueInactivityTimeout } });
+      fake.compute.instances.setFakeInstanceStatus(
+        project, 'us-east1-a', workerId,
+        'RUNNING');
+      worker.firstClaim = null;
+      worker.lastDateActive = null;
+
+      worker = await runCheckWorker(worker);
+      assert(fake.compute.instances.delete_called);
+      assert.equal(worker.state, Worker.states.RUNNING);
+
+      worker = await runCheckWorker(worker);
+      assert.equal(worker.state, Worker.states.STOPPED);
+    });
+    test('remove zombie worker that was active long ago', async function () {
+      const queueInactivityTimeout = 120;
+      let worker = await suiteMakeWorker({ providerData: { queueInactivityTimeout } });
+      fake.compute.instances.setFakeInstanceStatus(
+        project, 'us-east1-a', workerId,
+        'RUNNING');
+
+      worker.created = taskcluster.fromNow('-120 minutes');
+      worker.firstClaim = taskcluster.fromNow('-100 minutes');
+      worker.lastDateActive = taskcluster.fromNow('-80 minutes');
+
+      worker = await runCheckWorker(worker);
+      assert(fake.compute.instances.delete_called);
+      assert.equal(worker.state, Worker.states.RUNNING);
+
+      worker = await runCheckWorker(worker);
+      assert.equal(worker.state, Worker.states.STOPPED);
+    });
+    test('don\'t remove zombie worker that was recently active', async function () {
+      const queueInactivityTimeout = 60 * 60 * 4 * 1000; // 4 hours
+      let worker = await suiteMakeWorker({ providerData: { queueInactivityTimeout } });
+      fake.compute.instances.setFakeInstanceStatus(
+        project, 'us-east1-a', workerId,
+        'RUNNING');
+
+      worker.created = taskcluster.fromNow('-120 minutes');
+      worker.firstClaim = taskcluster.fromNow('-100 minutes');
+      worker.lastDateActive = taskcluster.fromNow('-80 minutes');
+
+      worker = await runCheckWorker(worker);
+      assert(!fake.compute.instances.delete_called);
+      assert.equal(worker.state, Worker.states.RUNNING);
     });
   });
 

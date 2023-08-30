@@ -6,7 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 
-	tcclient "github.com/taskcluster/taskcluster/v52/clients/client-go"
+	tcclient "github.com/taskcluster/taskcluster/v54/clients/client-go"
 )
 
 type (
@@ -955,6 +955,22 @@ type (
 		StorageType string `json:"storageType"`
 	}
 
+	// Link to source of this task, should specify a file, revision and
+	// repository. This should be place someone can go an do a git/hg blame
+	// to who came up with recipe for this task.
+	//
+	// Syntax:     ^(https?://|ssh://|git@)
+	// Max length: 4096
+	Source string
+
+	// Link to source of this task, should specify a file, revision and
+	// repository. This should be place someone can go an do a git/hg blame
+	// to who came up with recipe for this task.
+	//
+	// Syntax:     ^(https?://|ssh://|git@)
+	// Max length: 4096
+	Source1 string
+
 	TaskClaim struct {
 
 		// Temporary credentials granting `task.scopes` and the scope:
@@ -1612,8 +1628,11 @@ type (
 		// repository. This should be place someone can go an do a git/hg blame
 		// to who came up with recipe for this task.
 		//
-		// Syntax:     ^(https?|ssh)://
+		// Syntax:     ^(https?://|ssh://|git@)
 		// Max length: 4096
+		// Any of:
+		//   * Source
+		//   * Source1
 		Source string `json:"source"`
 	}
 
@@ -2223,48 +2242,48 @@ type (
 
 // MarshalJSON calls json.RawMessage method of the same name. Required since
 // GetArtifactContentResponse is of type json.RawMessage...
-func (this *GetArtifactContentResponse) MarshalJSON() ([]byte, error) {
-	x := json.RawMessage(*this)
+func (m *GetArtifactContentResponse) MarshalJSON() ([]byte, error) {
+	x := json.RawMessage(*m)
 	return (&x).MarshalJSON()
 }
 
 // UnmarshalJSON is a copy of the json.RawMessage implementation.
-func (this *GetArtifactContentResponse) UnmarshalJSON(data []byte) error {
-	if this == nil {
+func (m *GetArtifactContentResponse) UnmarshalJSON(data []byte) error {
+	if m == nil {
 		return errors.New("GetArtifactContentResponse: UnmarshalJSON on nil pointer")
 	}
-	*this = append((*this)[0:0], data...)
+	*m = append((*m)[0:0], data...)
 	return nil
 }
 
 // MarshalJSON calls json.RawMessage method of the same name. Required since
 // PostArtifactRequest is of type json.RawMessage...
-func (this *PostArtifactRequest) MarshalJSON() ([]byte, error) {
-	x := json.RawMessage(*this)
+func (m *PostArtifactRequest) MarshalJSON() ([]byte, error) {
+	x := json.RawMessage(*m)
 	return (&x).MarshalJSON()
 }
 
 // UnmarshalJSON is a copy of the json.RawMessage implementation.
-func (this *PostArtifactRequest) UnmarshalJSON(data []byte) error {
-	if this == nil {
+func (m *PostArtifactRequest) UnmarshalJSON(data []byte) error {
+	if m == nil {
 		return errors.New("PostArtifactRequest: UnmarshalJSON on nil pointer")
 	}
-	*this = append((*this)[0:0], data...)
+	*m = append((*m)[0:0], data...)
 	return nil
 }
 
 // MarshalJSON calls json.RawMessage method of the same name. Required since
 // PostArtifactResponse is of type json.RawMessage...
-func (this *PostArtifactResponse) MarshalJSON() ([]byte, error) {
-	x := json.RawMessage(*this)
+func (m *PostArtifactResponse) MarshalJSON() ([]byte, error) {
+	x := json.RawMessage(*m)
 	return (&x).MarshalJSON()
 }
 
 // UnmarshalJSON is a copy of the json.RawMessage implementation.
-func (this *PostArtifactResponse) UnmarshalJSON(data []byte) error {
-	if this == nil {
+func (m *PostArtifactResponse) UnmarshalJSON(data []byte) error {
+	if m == nil {
 		return errors.New("PostArtifactResponse: UnmarshalJSON on nil pointer")
 	}
-	*this = append((*this)[0:0], data...)
+	*m = append((*m)[0:0], data...)
 	return nil
 }

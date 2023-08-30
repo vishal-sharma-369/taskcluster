@@ -11,8 +11,8 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/taskcluster/taskcluster/v52/workers/generic-worker/host"
-	"github.com/taskcluster/taskcluster/v52/workers/generic-worker/runtime"
+	"github.com/taskcluster/taskcluster/v54/workers/generic-worker/host"
+	"github.com/taskcluster/taskcluster/v54/workers/generic-worker/runtime"
 	"golang.org/x/net/context"
 )
 
@@ -122,7 +122,8 @@ func newCommand(f func() *exec.Cmd, commandLine []string, workingDirectory strin
 		cmd.Stderr = os.Stderr
 	}
 	if platformData.SysProcAttr != nil {
-		cmd.SysProcAttr = platformData.SysProcAttr
+		attrs := *platformData.SysProcAttr
+		cmd.SysProcAttr = &attrs
 	} else {
 		cmd.SysProcAttr = &syscall.SysProcAttr{}
 	}

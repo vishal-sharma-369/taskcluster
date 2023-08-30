@@ -4,13 +4,13 @@ import (
 	"fmt"
 	"strings"
 
-	tcclient "github.com/taskcluster/taskcluster/v52/clients/client-go"
-	"github.com/taskcluster/taskcluster/v52/clients/client-go/tcworkermanager"
-	"github.com/taskcluster/taskcluster/v52/tools/worker-runner/cfg"
-	"github.com/taskcluster/taskcluster/v52/tools/worker-runner/provider/provider"
-	"github.com/taskcluster/taskcluster/v52/tools/worker-runner/run"
-	"github.com/taskcluster/taskcluster/v52/tools/worker-runner/tc"
-	"github.com/taskcluster/taskcluster/v52/tools/workerproto"
+	tcclient "github.com/taskcluster/taskcluster/v54/clients/client-go"
+	"github.com/taskcluster/taskcluster/v54/clients/client-go/tcworkermanager"
+	"github.com/taskcluster/taskcluster/v54/tools/worker-runner/cfg"
+	"github.com/taskcluster/taskcluster/v54/tools/worker-runner/provider/provider"
+	"github.com/taskcluster/taskcluster/v54/tools/worker-runner/run"
+	"github.com/taskcluster/taskcluster/v54/tools/worker-runner/tc"
+	"github.com/taskcluster/taskcluster/v54/tools/workerproto"
 )
 
 type GoogleProvider struct {
@@ -27,12 +27,12 @@ func (p *GoogleProvider) ConfigureRun(state *run.State) error {
 
 	workerID, err := p.metadataService.queryMetadata("/instance/id")
 	if err != nil {
-		return fmt.Errorf("Could not query metadata: %v", err)
+		return fmt.Errorf("could not query metadata: %v", err)
 	}
 
 	userData, err := p.metadataService.queryUserData()
 	if err != nil {
-		return fmt.Errorf("Could not query user data: %v", err)
+		return fmt.Errorf("could not query user data: %v", err)
 	}
 
 	state.RootURL = userData.RootURL
@@ -58,7 +58,7 @@ func (p *GoogleProvider) ConfigureRun(state *run.State) error {
 	} {
 		value, err := p.metadataService.queryMetadata(f.path)
 		if err != nil {
-			return fmt.Errorf("Error querying GCE metadata %v: %v", f.path, err)
+			return fmt.Errorf("error querying GCE metadata %v: %v", f.path, err)
 		}
 		providerMetadata[f.name] = value
 	}

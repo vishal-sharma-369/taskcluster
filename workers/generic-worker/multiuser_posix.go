@@ -13,9 +13,9 @@ import (
 	"strconv"
 
 	"github.com/taskcluster/shell"
-	"github.com/taskcluster/taskcluster/v52/workers/generic-worker/host"
-	"github.com/taskcluster/taskcluster/v52/workers/generic-worker/process"
-	gwruntime "github.com/taskcluster/taskcluster/v52/workers/generic-worker/runtime"
+	"github.com/taskcluster/taskcluster/v54/workers/generic-worker/host"
+	"github.com/taskcluster/taskcluster/v54/workers/generic-worker/process"
+	gwruntime "github.com/taskcluster/taskcluster/v54/workers/generic-worker/runtime"
 )
 
 func (task *TaskRun) formatCommand(index int) string {
@@ -25,6 +25,8 @@ func (task *TaskRun) formatCommand(index int) string {
 func platformFeatures() []Feature {
 	return []Feature{
 		&InteractiveFeature{},
+		&LoopbackAudioFeature{},
+		&LoopbackVideoFeature{},
 		// keep chain of trust as low down as possible, as it checks permissions
 		// of signing key file, and a feature could change them, so we want these
 		// checks as late as possible
@@ -189,6 +191,8 @@ func makeFileOrDirReadWritableForUser(recurse bool, fileOrDir string, user *gwru
 			return host.Run("/usr/sbin/chown", "-R", user.Name+":staff", fileOrDir)
 		case "linux":
 			return host.Run("/bin/chown", "-R", user.Name+":"+user.Name, fileOrDir)
+		case "freebsd":
+			return host.Run("/usr/sbin/chown", "-R", user.Name+":"+user.Name, fileOrDir)
 		}
 		return fmt.Errorf("Unknown platform: %v", runtime.GOOS)
 	}
@@ -197,6 +201,8 @@ func makeFileOrDirReadWritableForUser(recurse bool, fileOrDir string, user *gwru
 		return host.Run("/usr/sbin/chown", user.Name+":staff", fileOrDir)
 	case "linux":
 		return host.Run("/bin/chown", user.Name+":"+user.Name, fileOrDir)
+	case "freebsd":
+		return host.Run("/usr/sbin/chown", user.Name+":"+user.Name, fileOrDir)
 	}
 	return fmt.Errorf("Unknown platform: %v", runtime.GOOS)
 }

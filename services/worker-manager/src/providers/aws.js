@@ -20,7 +20,6 @@ class AwsProvider extends Provider {
     notify,
     db,
     providerConfig,
-    queue,
   }) {
     super({
       providerId,
@@ -33,7 +32,6 @@ class AwsProvider extends Provider {
       notify,
       db,
       providerConfig,
-      queue,
     });
     this.configSchema = 'config-aws';
     this.ec2iid_RSA_key = fs.readFileSync(path.resolve(__dirname, 'aws-keys/RSA-key-forSignature')).toString();
@@ -107,7 +105,9 @@ class AwsProvider extends Provider {
       return; // Nothing to do
     }
 
-    const { terminateAfter, reregistrationTimeout } = Provider.interpretLifecycle(workerPool.config);
+    const {
+      terminateAfter, reregistrationTimeout, queueInactivityTimeout,
+    } = Provider.interpretLifecycle(workerPool.config);
 
     const toSpawnPerConfig = Math.ceil(toSpawn / workerPool.config.launchConfigs.length);
     const shuffledConfigs = _.shuffle(workerPool.config.launchConfigs);
@@ -262,6 +262,7 @@ class AwsProvider extends Provider {
             stateReason: i.StateReason.Message,
             terminateAfter,
             reregistrationTimeout,
+            queueInactivityTimeout,
             workerConfig: config.workerConfig || {},
           },
         });
@@ -361,6 +362,10 @@ class AwsProvider extends Provider {
           await this.removeWorker({ worker, reason: 'terminateAfter time exceeded' });
         }
       }
+      const { isZombie, reason } = Provider.isZombie({ worker });
+      if (isZombie) {
+        await this.removeWorker({ worker, reason });
+      }
     } catch (e) {
       if (e.code !== 'InvalidInstanceID.NotFound') { // aws throws this error for instances that had been terminated, too
         throw e;
@@ -419,9 +424,8 @@ class AwsProvider extends Provider {
           `Unexpected error: expected to shut down instance ${worker.workerId} but got ${ti.CurrentState.Name} state for ${ti.InstanceId} instance instead`,
         );
       }
-    });
 
-    await this.quarantineWorker({ worker, reason });
+    });
   }
 
   async scanPrepare() {

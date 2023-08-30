@@ -8,7 +8,7 @@ import (
 	"strings"
 	"syscall"
 
-	"github.com/taskcluster/taskcluster/v52/workers/generic-worker/win32"
+	"github.com/taskcluster/taskcluster/v54/workers/generic-worker/win32"
 )
 
 func helloGoodbye() []string {
@@ -153,4 +153,10 @@ func copyTestdataFileTo(src, dest string) []string {
 
 func singleCommandNoArgs(command string) []string {
 	return []string{command}
+}
+
+func listGroups() []string {
+	return []string{
+		`net localgroup`,
+	}
 }

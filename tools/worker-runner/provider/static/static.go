@@ -5,13 +5,13 @@ import (
 	"fmt"
 
 	tcurls "github.com/taskcluster/taskcluster-lib-urls"
-	tcclient "github.com/taskcluster/taskcluster/v52/clients/client-go"
-	"github.com/taskcluster/taskcluster/v52/clients/client-go/tcworkermanager"
-	"github.com/taskcluster/taskcluster/v52/tools/worker-runner/cfg"
-	"github.com/taskcluster/taskcluster/v52/tools/worker-runner/provider/provider"
-	"github.com/taskcluster/taskcluster/v52/tools/worker-runner/run"
-	"github.com/taskcluster/taskcluster/v52/tools/worker-runner/tc"
-	"github.com/taskcluster/taskcluster/v52/tools/workerproto"
+	tcclient "github.com/taskcluster/taskcluster/v54/clients/client-go"
+	"github.com/taskcluster/taskcluster/v54/clients/client-go/tcworkermanager"
+	"github.com/taskcluster/taskcluster/v54/tools/worker-runner/cfg"
+	"github.com/taskcluster/taskcluster/v54/tools/worker-runner/provider/provider"
+	"github.com/taskcluster/taskcluster/v54/tools/worker-runner/run"
+	"github.com/taskcluster/taskcluster/v54/tools/worker-runner/tc"
+	"github.com/taskcluster/taskcluster/v54/tools/workerproto"
 )
 
 type staticProviderConfig struct {
@@ -79,7 +79,7 @@ func (p *StaticProvider) GetWorkerIdentityProof() (map[string]interface{}, error
 }
 
 func (p *StaticProvider) UseCachedRun(run *run.State) error {
-	return errors.New("Do not use cacheOverRestarts with static provider")
+	return errors.New("do not use cacheOverRestarts with static provider")
 }
 
 func (p *StaticProvider) SetProtocol(proto *workerproto.Protocol) {

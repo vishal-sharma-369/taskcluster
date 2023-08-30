@@ -7,7 +7,7 @@ package main
 import (
 	"encoding/json"
 
-	tcclient "github.com/taskcluster/taskcluster/v52/clients/client-go"
+	tcclient "github.com/taskcluster/taskcluster/v54/clients/client-go"
 )
 
 type (
@@ -134,7 +134,7 @@ type (
 	// based on exit code of task commands.
 	ExitCodeHandling struct {
 
-		// If the task exists with a purge caches exit status, all caches
+		// If the task exits with a purge caches exit status, all caches
 		// associated with the task will be purged.
 		//
 		// Since: generic-worker 49.0.0
@@ -190,6 +190,45 @@ type (
 		//
 		// Default:    true
 		LiveLog bool `json:"liveLog" default:"true"`
+
+		// Audio loopback device created using snd-aloop.
+		// An audio device will be available for the task. Its
+		// location will be `/dev/snd`. Devices inside that directory
+		// will take the form `/dev/snd/controlC<N>`,
+		// `/dev/snd/pcmC<N>D0c`, `/dev/snd/pcmC<N>D0p`,
+		// `/dev/snd/pcmC<N>D1c`, and `/dev/snd/pcmC<N>D1p`,
+		// where <N> is an integer between 0 and 31, inclusive.
+		// The Generic Worker config setting `loopbackAudioDeviceNumber`
+		// may be used to change the device number in case the
+		// default value (`16`) conflicts with another
+		// audio device on the worker.
+		//
+		// This feature is only available on Linux. If a task
+		// is submitted with this feature enabled on a non-Linux,
+		// posix platform (FreeBSD, macOS), the task will resolve as
+		// `exception/malformed-payload`.
+		//
+		// Since: generic-worker 54.5.0
+		LoopbackAudio bool `json:"loopbackAudio,omitempty"`
+
+		// Video loopback device created using v4l2loopback.
+		// A video device will be available for the task. Its
+		// location will be passed to the task via environment
+		// variable `TASKCLUSTER_VIDEO_DEVICE`. The
+		// location will be `/dev/video<N>` where `<N>` is
+		// an integer between 0 and 255. The value of `<N>`
+		// is not static, and therefore either the environment
+		// variable should be used, or `/dev` should be
+		// scanned in order to determine the correct location.
+		// Tasks should not assume a constant value.
+		//
+		// This feature is only available on Linux. If a task
+		// is submitted with this feature enabled on a non-Linux,
+		// posix platform (FreeBSD, macOS), the task will resolve as
+		// `exception/malformed-payload`.
+		//
+		// Since: generic-worker 53.1.0
+		LoopbackVideo bool `json:"loopbackVideo,omitempty"`
 
 		// The taskcluster proxy provides an easy and safe way to make authenticated
 		// taskcluster requests within the scope(s) of a particular task. See
@@ -271,11 +310,11 @@ type (
 		Logs Logs `json:"logs,omitempty"`
 
 		// Maximum time the task container can run in seconds.
+		// The maximum value for `maxRunTime` is set by a `maxTaskRunTime` config property specific to each worker-pool.
 		//
 		// Since: generic-worker 0.0.1
 		//
 		// Mininum:    1
-		// Maximum:    86400
 		MaxRunTime int64 `json:"maxRunTime"`
 
 		// Directories and/or files to be mounted.
@@ -785,6 +824,16 @@ func JSONSchema() string {
           "title": "Enable [livelog](https://github.com/taskcluster/taskcluster/tree/main/tools/livelog)",
           "type": "boolean"
         },
+        "loopbackAudio": {
+          "description": "Audio loopback device created using snd-aloop.\nAn audio device will be available for the task. Its\nlocation will be ` + "`" + `/dev/snd` + "`" + `. Devices inside that directory\nwill take the form ` + "`" + `/dev/snd/controlC\u003cN\u003e` + "`" + `,\n` + "`" + `/dev/snd/pcmC\u003cN\u003eD0c` + "`" + `, ` + "`" + `/dev/snd/pcmC\u003cN\u003eD0p` + "`" + `,\n` + "`" + `/dev/snd/pcmC\u003cN\u003eD1c` + "`" + `, and ` + "`" + `/dev/snd/pcmC\u003cN\u003eD1p` + "`" + `,\nwhere \u003cN\u003e is an integer between 0 and 31, inclusive.\nThe Generic Worker config setting ` + "`" + `loopbackAudioDeviceNumber` + "`" + `\nmay be used to change the device number in case the\ndefault value (` + "`" + `16` + "`" + `) conflicts with another\naudio device on the worker.\n\nThis feature is only available on Linux. If a task\nis submitted with this feature enabled on a non-Linux,\nposix platform (FreeBSD, macOS), the task will resolve as\n` + "`" + `exception/malformed-payload` + "`" + `.\n\nSince: generic-worker 54.5.0",
+          "title": "Loopback Audio device",
+          "type": "boolean"
+        },
+        "loopbackVideo": {
+          "description": "Video loopback device created using v4l2loopback.\nA video device will be available for the task. Its\nlocation will be passed to the task via environment\nvariable ` + "`" + `TASKCLUSTER_VIDEO_DEVICE` + "`" + `. The\nlocation will be ` + "`" + `/dev/video\u003cN\u003e` + "`" + ` where ` + "`" + `\u003cN\u003e` + "`" + ` is\nan integer between 0 and 255. The value of ` + "`" + `\u003cN\u003e` + "`" + `\nis not static, and therefore either the environment\nvariable should be used, or ` + "`" + `/dev` + "`" + ` should be\nscanned in order to determine the correct location.\nTasks should not assume a constant value.\n\nThis feature is only available on Linux. If a task\nis submitted with this feature enabled on a non-Linux,\nposix platform (FreeBSD, macOS), the task will resolve as\n` + "`" + `exception/malformed-payload` + "`" + `.\n\nSince: generic-worker 53.1.0",
+          "title": "Loopback Video device",
+          "type": "boolean"
+        },
         "taskclusterProxy": {
           "description": "The taskcluster proxy provides an easy and safe way to make authenticated\ntaskcluster requests within the scope(s) of a particular task. See\n[the github project](https://github.com/taskcluster/taskcluster/tree/main/tools/taskcluster-proxy) for more information.\n\nSince: generic-worker 10.6.0",
           "title": "Run [taskcluster-proxy](https://github.com/taskcluster/taskcluster/tree/main/tools/taskcluster-proxy) to allow tasks to dynamically proxy requests to taskcluster services",
@@ -817,8 +866,7 @@ func JSONSchema() string {
       "type": "object"
     },
     "maxRunTime": {
-      "description": "Maximum time the task container can run in seconds.\n\nSince: generic-worker 0.0.1",
-      "maximum": 86400,
+      "description": "Maximum time the task container can run in seconds.\nThe maximum value for ` + "`" + `maxRunTime` + "`" + ` is set by a ` + "`" + `maxTaskRunTime` + "`" + ` config property specific to each worker-pool.\n\nSince: generic-worker 0.0.1",
       "minimum": 1,
       "multipleOf": 1,
       "title": "Maximum run time in seconds",
@@ -838,7 +886,7 @@ func JSONSchema() string {
       "description": "By default tasks will be resolved with ` + "`" + `state/reasonResolved` + "`" + `: ` + "`" + `completed/completed` + "`" + `\nif all task commands have a zero exit code, or ` + "`" + `failed/failed` + "`" + ` if any command has a\nnon-zero exit code. This payload property allows customsation of the task resolution\nbased on exit code of task commands.",
       "properties": {
         "purgeCaches": {
-          "description": "If the task exists with a purge caches exit status, all caches\nassociated with the task will be purged.\n\nSince: generic-worker 49.0.0",
+          "description": "If the task exits with a purge caches exit status, all caches\nassociated with the task will be purged.\n\nSince: generic-worker 49.0.0",
           "items": {
             "minimum": 1,
             "title": "Exit statuses",

@@ -1,18 +1,11 @@
 package main
 
 import (
-	"github.com/taskcluster/taskcluster/v52/internal/scopes"
+	"github.com/taskcluster/taskcluster/v54/internal/scopes"
 )
 
 // one instance overall - represents feature
 type OSGroupsFeature struct {
-}
-
-// one instance per task
-type OSGroups struct {
-	Task *TaskRun
-	// keep track of which groups we successfully update
-	AddedGroups []string
 }
 
 func (feature *OSGroupsFeature) Name() string {

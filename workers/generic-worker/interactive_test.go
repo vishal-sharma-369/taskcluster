@@ -3,6 +3,7 @@
 package main
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"testing"
@@ -75,6 +76,7 @@ func TestInteractiveCommand(t *testing.T) {
 
 	var conn *websocket.Conn
 	var err error
+	const SENTINEL = "S3ntin3lValue"
 
 	for {
 		select {
@@ -86,19 +88,29 @@ func TestInteractiveCommand(t *testing.T) {
 			url := fmt.Sprintf("ws://localhost:%v/shell/%v", config.InteractivePort, os.Getenv("INTERACTIVE_ACCESS_TOKEN"))
 			conn, _, err = websocket.DefaultDialer.Dial(url, nil)
 			if err == nil {
-				err = conn.WriteMessage(websocket.TextMessage, []byte("echo hello\n"))
+				err = conn.WriteMessage(websocket.TextMessage, []byte(fmt.Sprintf("\x01echo %s\n", SENTINEL)))
 				if err != nil {
 					t.Fatalf("write error: %v", err)
 				}
 
 				var output []byte
-				_, output, err = conn.ReadMessage()
-				if err != nil {
-					t.Fatalf("read error: %v", err)
+				expectedBytes := []byte(SENTINEL)
+				completeOutput := []byte{}
+				ok := false
+				for i := 0; i < 20; i++ {
+					_, output, err = conn.ReadMessage()
+					if err != nil {
+						t.Fatalf("read error: %v", err)
+					}
+					completeOutput = append(completeOutput, output...)
+					if bytes.Count(completeOutput, expectedBytes) == 3 {
+						ok = true
+						break
+					}
 				}
-				expected := "hello\n"
-				if string(output) != expected {
-					t.Fatalf("unexpected output: %v\nexpected: %v", string(output), expected)
+
+				if !ok {
+					t.Fatalf("Couldn't find expected output: %v. Complete output: %v", expectedBytes, completeOutput)
 				}
 
 				err = conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, "Closing connection"))

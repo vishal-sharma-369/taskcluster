@@ -9,9 +9,9 @@ import (
 	"strconv"
 
 	docopt "github.com/docopt/docopt-go"
-	tcclient "github.com/taskcluster/taskcluster/v52/clients/client-go"
-	"github.com/taskcluster/taskcluster/v52/clients/client-go/tcqueue"
-	"github.com/taskcluster/taskcluster/v52/internal"
+	tcclient "github.com/taskcluster/taskcluster/v54/clients/client-go"
+	"github.com/taskcluster/taskcluster/v54/clients/client-go/tcqueue"
+	"github.com/taskcluster/taskcluster/v54/internal"
 )
 
 var (
@@ -94,14 +94,14 @@ func ParseCommandArgs(argv []string, exit bool) (routes Routes, address string, 
 	}
 
 	if port < 0 || port > 65535 {
-		err = fmt.Errorf("Port %v is not in range [0,65535]", port)
+		err = fmt.Errorf("port %v is not in range [0,65535]", port)
 		return
 	}
 
 	ipAddress := arguments["--ip-address"].(string)
 	if ipAddress != "" {
 		if net.ParseIP(ipAddress) == nil {
-			err = fmt.Errorf("Invalid IPv4/IPv6 address specified - cannot parse: %v", ipAddress)
+			err = fmt.Errorf("invalid IPv4/IPv6 address specified - cannot parse: %v", ipAddress)
 			return
 		}
 	}
@@ -161,7 +161,7 @@ func ParseCommandArgs(argv []string, exit bool) (routes Routes, address string, 
 		var task *tcqueue.TaskDefinitionResponse
 		task, err = getTask(rootURL.(string), taskID)
 		if err != nil {
-			err = fmt.Errorf("Could not fetch taskcluster task '%s' : %s", taskID, err)
+			err = fmt.Errorf("could not fetch taskcluster task '%s' : %s", taskID, err)
 			return
 		}
 
